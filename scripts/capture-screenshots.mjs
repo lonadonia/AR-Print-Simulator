@@ -4,7 +4,7 @@
  * Start the demo first:  npm run build:demo && npx vite preview --port 4173
  * Then:                  node scripts/capture-screenshots.mjs
  * Headless Chromium renders WebGL with SwiftShader (software), so colours can differ slightly
- * from a GPU-rendered browser.
+ * from a GPU-rendered browser. The camera screenshot shows the fallback (no camera in headless runs).
  */
 import { mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
@@ -81,6 +81,61 @@ await page.getByRole('tab', { name: 'Artwork' }).click();
 await page.getByRole('option', { name: 'Botanical leaves' }).click();
 await page.waitForTimeout(1200);
 await shot(page, 'room-bathroom');
+
+// Professional tools.
+await page.locator('.rv-roombtn').click();
+await page.getByRole('dialog').getByRole('button', { name: /Reception with feature wall/ }).click();
+await page.waitForTimeout(1500);
+const stage = await page.getByTestId('stage').boundingBox();
+const at = (x, y) => [stage.x + stage.width * x, stage.y + stage.height * y];
+await page.keyboard.press('w');
+await page.mouse.click(...at(0.72, 0.55));
+await page.waitForTimeout(900);
+await shot(page, 'tool-magic-select-glass-block');
+await page.getByRole('tab', { name: 'Artwork' }).click();
+await page.getByRole('button', { name: 'Pattern maker' }).click();
+await page.getByRole('option', { name: 'Moroccan quatrefoil' }).click();
+await page.getByRole('button', { name: 'Majorelle blue' }).click();
+await page.waitForTimeout(900);
+await shot(page, 'tool-pattern-maker');
+
+await page.locator('.rv-roombtn').click();
+await page.getByRole('dialog').getByRole('button', { name: /Kitchen with angled/ }).click();
+await page.waitForTimeout(1500);
+await page.getByRole('tab', { name: 'Material' }).click();
+await page.getByRole('radio', { name: /Herringbone tile/ }).check();
+await page.waitForTimeout(800);
+await shot(page, 'tool-tile-layout-herringbone');
+await page.getByRole('tab', { name: 'Shape' }).click();
+const h = await page.locator('.rv-handle--boundary').nth(2).boundingBox();
+await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+await page.mouse.down();
+await page.mouse.move(h.x + h.width / 2 - 6, h.y + h.height / 2 + 4, { steps: 3 });
+await shot(page, 'tool-magnifier-snapping');
+await page.mouse.up();
+await page.keyboard.press('Control+z');
+await page.keyboard.press('b');
+await page.waitForTimeout(400);
+await shot(page, 'tool-before-after');
+await page.keyboard.press('b');
+await page.getByRole('button', { name: 'Save image of the preview' }).click();
+await page.getByRole('dialog', { name: 'Save the preview' }).getByRole('img').waitFor();
+await page.waitForTimeout(400);
+await shot(page, 'tool-save-image');
+await page.keyboard.press('Escape');
+await page.getByRole('button', { name: 'Take a room photo with the camera' }).click();
+await page.waitForTimeout(1000);
+await shot(page, 'tool-camera-fallback');
+await page.keyboard.press('Escape');
+
+// Phone: magic select options.
+{
+  const phone = await open({ width: 390, height: 844 }, 2, true);
+  await phone.getByRole('button', { name: 'Magic select: tap a surface (W)' }).tap();
+  await phone.waitForTimeout(300);
+  await shot(phone, 'phone-magic-select-options');
+  await phone.context().close();
+}
 
 await browser.close();
 console.log('saved to', OUT);

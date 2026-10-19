@@ -42,6 +42,9 @@ Keep the protocol in `src/bridge/protocol.ts` and `wix/velo/room-visualizer-page
 | Working size | rooms ≤ 2560 px, artwork ≤ 2048 px long edge (and ≤ GPU limit) | same |
 | Uploaded rooms kept per session | 3 (oldest dropped with its areas) | `src/Editor.tsx` |
 | Uploaded artworks kept per session | 12 | same |
+| Generated patterns kept in memory | 10 (older unused ones dropped) | same |
+| Photo analysis size (snapping, magic select) | 800 px long edge, once per photo | `src/Editor.tsx`, `src/imaging/analysis.ts` |
+| Exported image | photo working size (≤ 2560 px, ≤ GPU limit) + caption strip | `src/ui/Stage.tsx` (`exportImage`) |
 
 SVG, HTML, HEIC, GIF, TIFF, BMP and AVIF files are refused with a message. HEIC: iPhones usually
 convert to JPEG when a photo is picked in the browser; if not, the message explains how.
@@ -66,7 +69,9 @@ outlining. If the GPU resets, the preview shows a notice and recovers automatica
 | Library images say "does not allow this image" | Image host lacks CORS headers; check Wix media behaviour (see `WIX_INTEGRATION.md`). |
 | Editor waits forever then "did not arrive" | Page code missing / wrong element ID / origin not allow-listed. |
 | Artwork looks stretched | Adjust *Perspective → Surface proportion*. |
-| Area shows no artwork | Outline crosses itself or the perspective frame is folded — the area list shows "Needs attention". |
+| Area shows no artwork | Outline crosses itself or the perspective frame is folded — the area list shows "Needs attention". Or the area is hidden (eye icon in the list). |
+| Magic select takes too much / too little | Lower / raise *Tolerance*; toggle *Across joints*; Shift-tap to add, Alt-tap to remove. Tuning constants: `growthLimits()` in `src/imaging/analysis.ts`. |
+| Camera says live access is not allowed | The embedding page does not grant camera access to the iframe (see `WIX_INTEGRATION.md`); the camera-app fallback is offered. |
 
 ## Known limitations
 
@@ -74,4 +79,6 @@ outlining. If the GPU resets, the preview shows a notice and recovers automatica
 - Overlapping areas: the area lower in the list is drawn on top.
 - Sizes are visual only; the photo is not calibrated, so no centimetres/print dimensions.
 - Lighting and materials are preview approximations (no physical relighting or reflections).
-- Editing state lives in the browser tab; reloading the page starts fresh (no saving/sharing, by scope).
+- Editing state lives in the browser tab; reloading the page starts fresh (no project saving, by scope; a JPEG of the preview can be saved).
+- Magic select is classical image processing (colour + edges): low-contrast corners between
+  similar walls, strong shadows or busy textures may need a lower tolerance, Add/Subtract or the Pen.

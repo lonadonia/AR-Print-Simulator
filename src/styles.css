@@ -3104,10 +3104,16 @@ img {
     gap: 8px;
   }
 
+  /* Compact tool options: hints are shown as toasts, except the point count while drawing. */
   .rv-optionsbar__hint {
+    display: none;
+  }
+
+  .rv-stagebar .rv-optionsbar__hint {
+    display: block;
     order: 3;
     flex: 1 1 100%;
-    font-size: 12.5px;
+    font-size: 12px;
     white-space: normal;
   }
 
@@ -3116,8 +3122,38 @@ img {
     margin-left: auto;
   }
 
+  .rv-optionsbar .rv-seg__btn {
+    min-height: 30px;
+    padding: 0 9px;
+    font-size: 12.5px;
+  }
+
+  .rv-optionsbar .rv-iconbtn {
+    width: 38px;
+    min-height: 34px;
+  }
+
+  .rv-optionsbar .rv-btn--primary {
+    padding: 0 11px;
+  }
+
+  /* Visually hidden but still the slider's accessible name. */
+  .rv-inline-slider > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
   .rv-inline-slider input {
     width: 96px;
+  }
+
+  /* While a tool shows its options, give the stage that much more height. */
+  .rv-main:has(.rv-optionsbar:not(.is-idle)) {
+    grid-template-rows: max(320px, min(calc((100vw - 24px) / var(--rv-photo-aspect, 1.5) + 24px + 49px + 86px), 68%)) minmax(0, 1fr);
   }
 
   .rv-stage__viewport {

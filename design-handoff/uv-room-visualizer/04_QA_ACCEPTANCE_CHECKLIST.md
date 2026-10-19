@@ -53,9 +53,22 @@ software WebGL, 2026-10-19.
 
 | Check | Status |
 | --- | --- |
-| Typecheck, lint, 32 unit tests, 18 e2e tests | VERIFIED_PASS |
+| Typecheck, lint, 56 unit tests, 29 e2e tests | VERIFIED_PASS |
 | Console errors | Not systematically asserted in e2e; manual screenshot runs of the demo printed no console output |
-| Bundle | 97 kB gzip JS, 6 kB gzip CSS |
+| Bundle | 127 kB gzip JS, 9 kB gzip CSS |
+
+## 4b. Professional tools (round 2)
+
+| Check | Status |
+| --- | --- |
+| Magic select (new / add / subtract / cutout, joints, tolerance) on demo photos | VERIFIED_PASS (e2e P01–P02 + tuning harness) |
+| Snapping to corners/edges/points, Alt/Shift modifiers, readouts, magnifier | VERIFIED_PASS (e2e P03–P04) |
+| Zoom at cursor, outline moving, rectangle tool | VERIFIED_PASS (e2e P04–P05) |
+| Before/after, hide/show areas, save image | VERIFIED_PASS (e2e P06–P07) |
+| Pattern maker, tile layouts | VERIFIED_PASS (e2e P08) |
+| Camera: fake device capture; iframe without permission → camera-app fallback | VERIFIED_PASS (e2e P10–P11) |
+| Camera on real iPhone / Android, torch, camera switch, level | NOT TESTED (no devices) |
+| Magic select on real customer photos | NOT TESTED (none supplied) |
 
 ## 5. Release readiness
 

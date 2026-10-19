@@ -56,9 +56,18 @@ page code accordingly.
 | `textureStrength` | Number 0–1 | 0.5 | |
 | `gridDensity` | Number 1–40 | 6 | Tiles/blocks across the frame height (visual only) |
 | `groutColor` | Text `#rrggbb` | `#d9d6cf` | Joint colour |
+| `tileLayout` | Text | `grid` | For `tile-grid`: `grid`, `brick` (½ offset), `third` (⅓ offset), `herringbone`, `hexagon`, `diamond` |
+| `tileAspect` | Number 0.2–6 | 1 | Tile width : height for `grid`, `brick` and `third` (e.g. 3 for a 3 : 1 metro tile, 4 for planks) |
 
 Out-of-range values are clamped by the editor; invalid items are skipped (and counted in the
-`catalog-received` message), never shown broken.
+`catalog-received` message), never shown broken. Customers can still change the tile layout and
+proportion for their own preview; the CMS values are the starting point.
+
+### Editor features (page code, not CMS)
+`FEATURES` at the top of `wix/velo/room-visualizer-page.js` switches optional editor features for
+the page: `patternMaker` (recolourable pattern generator in the Artwork tab) and `camera` (the
+*Camera* button). Both default to `true`; set one to `false` to hide it. Patterns are generated in
+the visitor's browser and need no CMS items.
 
 ### Optional `presetAreas` format
 An array of objects in normalized image coordinates (0–1 across the photo's width/height):

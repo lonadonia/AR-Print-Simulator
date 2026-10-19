@@ -5,9 +5,11 @@ artwork on surfaces in a sample room or in a photo of their own space — kitche
 printed glass, cabinet doors, glass blocks, partitions and other solid surfaces — and is embedded
 in the company's existing Wix site through an HTML iframe element.
 
-> **Mode disclosure.** This is **photo visualization**, not live camera AR. Customers pick a sample
-> room or upload/take a photo, outline the surfaces by hand, and preview artwork on them. There is
-> no camera feed, plane tracking or automatic surface detection. See
+> **Mode disclosure.** This is **photo visualization**, not tracked live AR. Customers pick a sample
+> room, upload a photo or take one with the device camera, select the surfaces (magic select and
+> edge/corner snapping assist; the customer confirms and refines), and preview artwork on the
+> **still photo**. The camera only captures a photo: there is no live overlay, plane tracking or
+> measurement, and sizes are visual estimates. See
 > [`docs/PROPOSAL_COST_TIMELINE.md`](docs/PROPOSAL_COST_TIMELINE.md) for the live-AR option.
 
 ## Status at a glance
@@ -22,23 +24,27 @@ in the company's existing Wix site through an HTML iframe element.
 
 ## What customers can do
 
-1. Choose a sample room (from the Wix CMS) or upload a room photo (JPEG/PNG/WebP up to 25 MB, processed only in the browser).
-2. Select a preset print area or draw a new one by tapping/clicking around the surface.
-3. Reshape it with draggable points (add points on any edge, remove points) — L-shaped and stepped outlines work.
-4. Add **cutouts** so obstacles (hob, hood, sockets, mirror, desk…) stay visible and unprinted.
-5. Align a **perspective frame** with lines on the real surface; artwork is projected with true per-pixel perspective.
-6. Choose library artwork (by category) or upload their own design; resize, move (drag/pinch), rotate, fit/fill, optionally repeat.
-7. Pick a material per area (tile with grout joints, clear/frosted/back-painted glass, brushed metal, glass block, lacquer…) and fine-tune brightness, colour, opacity and how much of the room's light and shadow shows on the print.
-8. Add as many areas as needed — each keeps its own outline, cutouts, perspective, artwork, placement, material and settings.
-9. Change the room (geometry stays with the photo it was drawn on) and adjust scene brightness/warmth.
-10. Undo/redo, zoom, keyboard operation and nudge controls for precise edits.
+1. Choose a sample room (from the Wix CMS), upload a room photo (JPEG/PNG/WebP up to 25 MB, processed only in the browser) or **take one with the camera** — an in-page viewfinder with framing grid, level, torch and camera switch; tapping the view captures the photo *and* selects the tapped surface. Where the browser or the embedding page blocks live camera access, the phone's own camera app is offered instead.
+2. Select surfaces precisely with a professional tool set:
+   - **Magic select** (W): tap a wall, door, glass panel or tiled surface and its outline is found from the photo's colours and edges; obstacles inside it become cutouts and rectangular surfaces get a perspective frame. *Across joints* selects a whole tiled, glass-block or panelled surface in one tap; **Shift-tap adds**, **Alt-tap removes**, tolerance is adjustable.
+   - **Pen** (P) point by point, **Rectangle** (R) corner to corner — points **snap** to corners and edges found in the photo and to existing points (Alt = no snap, Shift = 15° steps), with a **magnifier loupe** and live length/angle readout.
+   - Edit: drag points, add points on any edge, drag inside the outline to move it, arrow-key nudging; L-shaped and stepped outlines work.
+3. Add **cutouts** so obstacles (hob, hood, sockets, mirror, desk…) stay visible and unprinted.
+4. Align a **perspective frame** with lines on the real surface; artwork is projected with true per-pixel perspective.
+5. Choose a design: the library (marble & stone, tile designs, geometric, wood, nature, abstract, glass privacy, kids' rooms), the **Pattern Maker** (20 seamless recolourable patterns — zellige, Moroccan quatrefoil, eight-point star, encaustic, herringbone, chevron, terrazzo, fish scale, privacy dots and more — with 12 colourways or custom colours) or their own upload; resize, move (drag/pinch), rotate, fit/fill, repeat.
+6. Pick a material per area (gloss/matte ceramic with **tile layouts**: grid, brick, ⅓ offset, herringbone, hexagon, diamond and adjustable tile proportion; clear/frosted/back-painted glass, brushed metals, lacquer, glass block, acrylic…) and fine-tune brightness, colour, opacity and room light on the print.
+7. Add as many areas as needed — each keeps its own outline, cutouts, perspective, artwork, placement, material and settings; hide/show areas like layers.
+8. Compare **before/after** with a slider, adjust scene brightness/warmth, and **save the preview** as a full-resolution JPEG (or share it on phones).
+9. Change the room (geometry stays with the photo it was drawn on); undo/redo, zoom at the cursor, keyboard shortcuts (press ?) and a workflow stepper (Room · Surfaces · Design · Finish · Review).
 
 ## Technology and why
 
 | Need | Choice |
 | --- | --- |
-| Lightweight static app inside a Wix iframe | **Vite + React 19 + TypeScript** (no server, ~97 kB gzipped JS) |
-| Real perspective, concave outlines, cutouts, no seams | **WebGL** (1 or 2): even-odd stencil masks + per-pixel inverse homography in a fragment shader |
+| Lightweight static app inside a Wix iframe | **Vite + React 19 + TypeScript** (no server, ~127 kB gzipped JS) |
+| Real perspective, concave outlines, cutouts, no seams | **WebGL** (1 or 2): even-odd stencil masks + per-pixel inverse homography in a fragment shader; tile layouts drawn procedurally in the shader |
+| Precise selection | Own image analysis in TypeScript on a downscaled copy of the photo: CIELAB colour, Sobel + thin-line edge map, Shi–Tomasi corners, edge-aware region growing, contour tracing and simplification (no OpenCV, runs locally) |
+| Patterns | Canvas 2D generators that tile seamlessly; nothing is downloaded |
 | Editing controls | HTML buttons for handles (focusable, touch-friendly) + SVG overlay for outlines |
 | Wix data | Velo page code reads Wix CMS collections and sends a plain catalog object via the documented `postMessage`/`onMessage` APIs |
 
@@ -58,7 +64,7 @@ npm run dev -- --mode demo     # editor with bundled demo content at http://loca
 | `npm run build` | Production build for Wix (`dist/`), catalog comes from the Wix page |
 | `npm run build:demo` | Demo build with bundled sample content (`dist/`) |
 | `npm run typecheck` / `npm run lint` | TypeScript and ESLint |
-| `npm test` | Unit tests (geometry, imaging, catalog adapter, messaging) |
+| `npm test` | Unit tests (geometry, imaging, selection analysis, patterns, editor state, catalog adapter, messaging) |
 | `npm run e2e` | Playwright end-to-end tests (builds demo + harness automatically) |
 | `npm run build:harness && npm run harness` | Local Wix-page simulator at http://localhost:4174 |
 | `npm run assets:demo` | Regenerate the demo rooms/artwork in `public/demo/` |
@@ -101,12 +107,14 @@ another host — see the cost notes in [`docs/PROPOSAL_COST_TIMELINE.md`](docs/P
 ```
 src/
   geometry/      polygons, validation, hit testing, homography, artwork placement (pure, unit-tested)
-  render/        WebGL renderer and shaders
-  imaging/       upload validation, header sniffing, resizing, image store
+  render/        WebGL renderer and shaders (materials, tile layouts, full-resolution snapshot)
+  imaging/       upload validation, header sniffing, resizing, image store, photo analysis
+                 (snapping, magic select)
+  patterns/      Pattern Maker generators and colourways
   catalog/       catalog types, validation/adapter, demo fixtures (demo only)
   bridge/        Wix messaging protocol, origin allow-list, handshake
-  state/         editor reducer (areas, history, per-room memory) and selectors
-  ui/            Stage (canvas + handles) and panels
+  state/         editor reducer (areas, tools, history, per-room memory), selectors, magic-select glue
+  ui/            Stage (tool rail, canvas, handles, loupe, compare), panels, camera, dialogs
 wix/velo/        page code to paste into the Wix page
 wix/harness/     local Wix-page simulator (development only)
 scripts/         demo asset generator, harness server, screenshot capture

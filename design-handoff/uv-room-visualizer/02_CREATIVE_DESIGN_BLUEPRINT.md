@@ -30,27 +30,39 @@ Chosen: **A**, borrowing C's short instructions inside each tab and B's dark sta
   only colour, distinguishes them.
 - **Step numbers** (`01 Room`, `02 Print areas`, `03 Scene lighting`) like a print job ticket.
 - **Dashed full-design outline** in Artwork mode shows exactly what is cropped.
+- **Editing-tool grammar (round 2)**: a graphite stage with a vertical tool rail (Select, Magic
+  select, Pen, Rectangle, Hand · Snap, Magnifier, Before/after · zoom), a contextual options bar
+  above the photo and a status bar below (photo pixel coordinates, zoom, snap state) — the
+  layout professionals know from photo/design tools. Active tool = solid accent; on/off toggles =
+  outlined guide colour, so they never read as a second active tool. Snap markers are shaped by
+  kind (square = photo corner, diamond = edge, circle = existing point / close outline) in a
+  warm yellow that stays visible on any photo.
 
 ## 4. Tokens (`src/styles.css`; all overridable by the Wix `THEME`)
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--rv-paper` | `#f5f3ee` | App background |
+| `--rv-paper` | `#f3f2ef` | App background |
 | `--rv-surface` | `#ffffff` | Panels |
-| `--rv-ink` / `--rv-ink-2` | `#1c1d20` / `#55575d` | Text (≥ 7:1 / ≈ 7:1 on white) |
+| `--rv-ink` / `--rv-ink-2` | `#17181c` / `#4f525a` | Text (≥ 7:1 on white) |
+| `--rv-chrome` … `--rv-chrome-ink-2` | `#1f2024` … `#a9abb1` | Tool rail, options and status bars |
+| `--rv-snap` | `#ffd166` | Snap markers, level indicator |
 | `--rv-accent` | `#1f6f78` | Actions, selection (≈ 5.8:1 on white) — placeholder until brand is known |
 | `--rv-guide` | `#3cc4d2` | Perspective guides on the dark stage |
 | `--rv-danger` | `#b4351f` | Cutouts, errors |
-| `--rv-stage` | `#232427` | Stage surround |
+| `--rv-stage` | `#161719` | Stage surround (with a faint dot grid) |
 | `--rv-radius` | `10px` | Corners |
 | Fonts | system UI stack; mono for numbers | No external font loading (privacy, speed); site font via `THEME.fontFamily` |
 
 ## 5. Screen map
 
-Single screen: top bar (title, demo badge, **Room** button, undo/redo, zoom) · stage (photo,
-outlines, handles, badges, draw toolbar, toasts) · panel (Print areas list → selected area editor
-with tabs Shape / Cutouts / Perspective / Artwork / Material → Scene lighting). Room picker is a
-modal dialog (upload card, your photos, sample rooms by category). Status screens for loading,
+Single screen: top bar (brand, demo badge, **Room** button with thumbnail, workflow stepper
+Room · Surfaces · Design · Finish · Review, undo/redo, shortcuts, **Camera**, **Save image**) ·
+stage (options bar, tool rail, photo with outlines/handles/badges/snap markers, magnifier,
+before/after divider, status bar, toasts) · panel (Print areas as layers with visibility → selected
+area editor with tabs Shape / Cutouts / Perspective / Artwork (Design library | Pattern maker) /
+Material (incl. tile layouts) → Scene lighting). Dialogs: room picker (camera, upload, your
+photos, samples), full-screen camera, save image, keyboard shortcuts. Status screens for loading,
 errors, not-embedded.
 
 ## 6. Responsive behaviour
@@ -59,7 +71,8 @@ errors, not-embedded.
 | --- | --- |
 | ≥ 1100 | Panel 384 px right; stage fills the rest |
 | 900–1099 | Panel 340 px |
-| < 900 | Stacked: compact header (room button on its own row), stage height = photo proportion (max 58 %), panel scrolls below |
+| < 1600 | Stepper shows the current step's name only; hidden below 1100 |
+| < 900 | Stacked: compact header (room button on its own row), tool rail becomes a horizontal row under the photo, status bar hidden, options bar only while a tool is active (two compact rows; the stage grows to make room), stage height = photo proportion (max 62 %, 68 % with a tool), panel scrolls below |
 | < 520 | Title hidden (mark + demo badge remain); zoom % hidden < 480 |
 | Coarse pointer | 42 px tap targets, larger handles with 40+ px hit areas |
 

@@ -36,6 +36,8 @@ page.
    - **texture**: `none`, `brushed` (metal), `frosted` (etched glass), `tile-grid` (tiles with
      joints), `glass-block`
    - **gridDensity**: tiles/blocks across the surface height (visual only); **groutColor** `#rrggbb`
+   - **tileLayout** (only for `tile-grid`): `grid`, `brick`, `third`, `herringbone`, `hexagon` or
+     `diamond`; **tileAspect**: tile width ÷ height for grid/brick/third (3 = 3 : 1 metro tile)
    - **tintColor** `#rrggbb` + **tintStrength** 0–1 for coloured metals or tinted glass
 4. Save, open the visualizer page, apply the material to an area and compare with a real sample.
    These are visual approximations; adjust until they look right to you.
@@ -63,7 +65,26 @@ Save in the CMS, then reload the visualizer page on the live site (a private/inc
 shows what visitors see). If an item does not appear: is **Available** ticked, does it have an
 **image**, and does its **category** have the right **contentType**?
 
+## Patterns (no CMS work needed)
+
+The **Pattern maker** in the Artwork tab generates recolourable seamless patterns (zellige,
+quatrefoil, eight-point star, encaustic, herringbone, chevron, terrazzo, privacy dots…) in the
+customer's browser. It needs no CMS items. To offer a specific pattern + colourway as a library
+item instead, save a preview from the visualizer or export the design from your artwork software
+and add it as normal artwork. The developer can switch the pattern maker or the camera button off
+for the page (`FEATURES` in the page code).
+
+## Helping a customer on the phone or in the showroom
+
+- **Magic select** (wand tool): tap the surface; tap with *Across joints* on for tiled walls,
+  glass blocks or a run of cabinet doors. Shift-tap adds, Alt-tap removes (on a phone: choose
+  *Add* / *Subtract* in the bar above the photo). Then check the points and the perspective frame.
+- **Camera**: takes a still photo of the room. If the browser or page blocks the live camera, the
+  phone's camera app opens instead — both are fine.
+- **Save image** creates a JPEG of the preview (with an "approximate" note) to send to the customer.
+
 ## What the visualizer does not do
 
 It does not measure walls or produce print sizes, take orders or quotes, store customer photos,
-or show live camera AR. Customer uploads stay on the customer's device.
+or show live tracked AR (the camera only takes a still photo). Customer photos and uploads stay on
+the customer's device.

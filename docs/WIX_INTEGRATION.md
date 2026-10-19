@@ -70,7 +70,7 @@ Defined in `src/bridge/protocol.ts`; mirrored in the Velo file.
 | Direction | Message |
 | --- | --- |
 | editor → page | `{ protocol: 'uv-room-visualizer', version: 1, type: 'ready' \| 'retry-catalog', requestId }` |
-| page → editor | `{ protocol, version, type: 'catalog', requestId, payload: { categories, scenes, artwork, materials, theme } }` |
+| page → editor | `{ protocol, version, type: 'catalog', requestId, payload: { categories, scenes, artwork, materials, theme, features } }` |
 | page → editor | `{ protocol, version, type: 'catalog-error', requestId, message }` |
 | editor → page | `{ protocol, version, type: 'catalog-received', requestId, counts }` (informational) |
 
@@ -103,6 +103,21 @@ Velo note: the page code reads only `event.data` from `onMessage`; it does not r
   be used in the preview"*. **Pending verification.** No open proxy is used as a workaround.
 - Customer uploads never leave the browser.
 
+## Camera inside the Wix iframe
+
+The *Camera* button opens a live viewfinder only when the browser allows camera access to the
+editor's frame. A cross-origin iframe needs the embedding page to grant it
+(`allow="camera"` on the iframe, plus HTTPS and the visitor's permission). Whether Wix's HTML iFrame
+element grants camera access is **not verified** (it could not be tested without the site); the
+editor does not assume it. It checks the frame's permissions policy before asking, and when live
+access is not possible it says so and offers **"Take a photo with the camera app"** — a file input
+with `capture="environment"` that opens the phone's own camera and returns the photo to the
+editor. That path works inside iframes in the browsers tested here (Chromium). The local simulator
+(`wix/harness/host.html`, iframe `allow="fullscreen"` only) reproduces the blocked case and is
+covered by an end-to-end test. Set `FEATURES.camera = false` in the page code to hide the button.
+
+Photos taken either way stay in the visitor's browser like uploads.
+
 ## Troubleshooting
 
 | Symptom | Check |
@@ -113,3 +128,5 @@ Velo note: the page code reads only `event.data` from `onMessage`; it does not r
 | "could not be loaded" | Collection names/permissions; the page code logs the wix-data error to the console. |
 | Library images unavailable | Image field empty, file deleted, CORS (see above). |
 | Controls cut off on phones | Increase the element height in the mobile editor. |
+| Camera shows "does not allow live camera access" | Expected when the iframe is not granted camera access; visitors use "Take a photo with the camera app". |
+| Download of "Save image" does not start | Some embedded pages block downloads from iframes; the dialog shows the image so it can be saved with right-click / long-press, and phones offer *Share*. |

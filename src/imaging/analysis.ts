@@ -336,6 +336,45 @@ function erode(mask: Uint8Array, w: number, h: number): Uint8Array {
   return out;
 }
 
+/** Dilation / erosion with the 3×3 square (8-neighbourhood). */
+function dilate8(mask: Uint8Array, w: number, h: number): Uint8Array {
+  const out = new Uint8Array(mask.length);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      let v = 0;
+      for (let dy = -1; dy <= 1 && !v; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < w && yy < h && mask[yy * w + xx]) {
+            v = 1;
+            break;
+          }
+        }
+      out[y * w + x] = v;
+    }
+  return out;
+}
+
+function erode8(mask: Uint8Array, w: number, h: number): Uint8Array {
+  const out = new Uint8Array(mask.length);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      let v = 1;
+      for (let dy = -1; dy <= 1 && v; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < w && yy < h && !mask[yy * w + xx]) {
+            v = 0;
+            break;
+          }
+        }
+      out[y * w + x] = v;
+    }
+  return out;
+}
+
 /** Keeps the 4-connected component of `mask` containing `seed`. */
 function componentAt(mask: Uint8Array, w: number, h: number, seed: number): Uint8Array {
   const out = new Uint8Array(mask.length);
@@ -728,6 +767,12 @@ export function growRegion(an: PhotoAnalysis, seed: Point, tolerance: number, br
  */
 function smoothRegion(mask: Uint8Array, w: number, h: number, close = 1): Uint8Array {
   let m = mask;
+  if (close > 1) {
+    // Wide closing with a square element: fills joint notches flat instead of leaving V shapes.
+    for (let k = 0; k < close; k++) m = dilate8(m, w, h);
+    for (let k = 0; k < close; k++) m = erode8(m, w, h);
+    return dilate(dilate(m, w, h), w, h);
+  }
   for (let k = 0; k < close + 2; k++) m = dilate(m, w, h);
   for (let k = 0; k < close; k++) m = erode(m, w, h);
   return m;

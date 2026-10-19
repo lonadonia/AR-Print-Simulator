@@ -833,7 +833,7 @@ export const Stage = forwardRef<StageHandle, StageProps>(function Stage(props, r
             </span>
             {targetSwitch}
             <span className="rv-optionsbar__hint">
-              {drawing.target === 'area' ? 'Click each corner of the surface' : 'Click around the obstacle'} · {drawing.points.length} point{drawing.points.length === 1 ? '' : 's'}
+              {drawing.target === 'area' ? 'Place each corner of the surface' : 'Place points around the obstacle'} · {drawing.points.length} point{drawing.points.length === 1 ? '' : 's'}
               <span className="rv-optionsbar__keys"> · Shift = 15° · Alt = no snap</span>
             </span>
             <span className="rv-row rv-row--nowrap">
