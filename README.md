@@ -18,6 +18,7 @@ in the company's existing Wix site through an HTML iframe element.
 | Wix integration code (Velo page code, messaging, CMS schema) | Written; tested against a **local Wix-page simulator** only |
 | Installation on the client's real Wix site, live CMS, published-page test | **Pending access** — the site URL, editor type and collaborator access have not been provided |
 | Client branding, photos, artwork, materials | **Not supplied** — the bundled content is clearly labelled demo content generated from code |
+| Demo deployment | Vercel project `uv-room-visualizer-demo` (demo content) — currently behind Vercel Authentication; see [handoff](design-handoff/uv-room-visualizer/05_GITHUB_VERCEL_HANDOFF.md) |
 
 ## What customers can do
 
