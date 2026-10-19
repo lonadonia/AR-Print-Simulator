@@ -10,7 +10,15 @@ export type CatalogState =
   | { status: 'ready'; catalog: Catalog; rejected: RejectedItem[] }
   | { status: 'error'; title: string; message: string; canRetry: boolean };
 
-const EMPTY_WIX_CATALOG: Catalog = { source: 'wix', categories: [], scenes: [], artwork: [], materials: [], theme: null };
+const EMPTY_WIX_CATALOG: Catalog = {
+  source: 'wix',
+  features: { patternMaker: true, camera: true },
+  categories: [],
+  scenes: [],
+  artwork: [],
+  materials: [],
+  theme: null,
+};
 
 /**
  * Production: waits for the Wix page code to send the catalog through the iframe bridge.

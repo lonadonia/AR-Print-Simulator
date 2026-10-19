@@ -1,3 +1,4 @@
+import type { TileLayout } from '../catalog/types';
 import type { Quad } from '../geometry/homography';
 import type { Placement } from '../geometry/placement';
 import type { Point } from '../geometry/polygon';
@@ -14,6 +15,10 @@ export interface Appearance {
   shading: number | null;
   /** replaces the material's tile/block density when set */
   gridDensity: number | null;
+  /** replaces the material's tile layout when set */
+  tileLayout: TileLayout | null;
+  /** replaces the material's tile proportion when set */
+  tileAspect: number | null;
 }
 
 export interface PrintArea {
@@ -34,6 +39,8 @@ export interface PrintArea {
   /** False until artwork is first applied, so the first artwork is fitted automatically. */
   placementInitialized: boolean;
   appearance: Appearance;
+  /** Hidden areas keep their settings but are not printed in the preview. */
+  hidden?: boolean;
 }
 
 /** Geometry and settings for one room photo. Kept per scene so switching rooms never mixes geometry. */
@@ -54,7 +61,19 @@ export type HandleRef =
   | { kind: 'cutout'; cutout: number; index: number }
   | { kind: 'perspective'; index: number };
 
-export type Tool = { kind: 'none' } | { kind: 'draw'; target: 'area' | 'cutout'; points: Point[] };
+export type ShapeTarget = 'area' | 'cutout';
+
+/**
+ * Active stage tool. `none` is the select/edit tool; `draw` is the pen (point-by-point outline).
+ */
+export type Tool =
+  | { kind: 'none' }
+  | { kind: 'draw'; target: ShapeTarget; points: Point[] }
+  | { kind: 'rect'; target: ShapeTarget }
+  | { kind: 'magic'; target: ShapeTarget }
+  | { kind: 'hand' };
+
+export type ToolKind = Tool['kind'];
 
 export interface Lighting {
   /** exposure in stops (-1..1) */
@@ -79,6 +98,8 @@ export interface EditorState {
   lighting: Lighting;
   notice: Notice | null;
   idCounter: number;
+  /** Snap points to photo corners/edges and other points while drawing and dragging. */
+  snap: boolean;
 }
 
 export const DEFAULT_APPEARANCE: Appearance = {
@@ -87,6 +108,8 @@ export const DEFAULT_APPEARANCE: Appearance = {
   opacity: 1,
   shading: null,
   gridDensity: null,
+  tileLayout: null,
+  tileAspect: null,
 };
 
 export const DEFAULT_PLACEMENT: Placement = {

@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId, type CSSProperties, type ReactNode } from 'react';
 import { Icon, type IconName } from './icons';
 
 export function IconButton({
@@ -89,7 +89,7 @@ export function Slider({
   const id = useId();
   const shown = format ? format(value) : String(value);
   return (
-    <div className="rv-slider">
+    <div className="rv-slider" style={{ '--rv-fill': `${(((value - min) / (max - min || 1)) * 100).toFixed(1)}%` } as CSSProperties}>
       <div className="rv-slider__head">
         <label htmlFor={id}>{label}</label>
         <output htmlFor={id} className="rv-num">

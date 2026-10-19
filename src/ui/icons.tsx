@@ -30,7 +30,23 @@ type IconName =
   | 'palette'
   | 'shape'
   | 'chevron-down'
-  | 'info';
+  | 'info'
+  | 'camera'
+  | 'bolt'
+  | 'switch'
+  | 'cursor'
+  | 'wand'
+  | 'hand'
+  | 'magnet'
+  | 'loupe'
+  | 'compare'
+  | 'download'
+  | 'eye'
+  | 'eye-off'
+  | 'keyboard'
+  | 'move'
+  | 'sparkle'
+  | 'tile';
 
 const PATHS: Record<IconName, string> = {
   image: 'M4 5h16v14H4z M4 16l4.5-4.5 3.5 3.5 2.5-2.5L20 17 M15.5 9.5a1 1 0 1 0 0-.01',
@@ -62,6 +78,22 @@ const PATHS: Record<IconName, string> = {
   shape: 'M4 6l7-2 9 5-3 10-11 1z',
   'chevron-down': 'M6 9l6 6 6-6',
   info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 11v6 M12 7.5v.5',
+  camera: 'M4 8h3l2-3h6l2 3h3v11H4z M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  bolt: 'M13 3L5 14h6l-1 7 8-11h-6z',
+  switch: 'M4 9h13l-3-3 M20 15H7l3 3',
+  cursor: 'M5 3l13 8-6 1.5L9 19z',
+  wand: 'M4 20L15 9 M13 7l2-2 2 2-2 2z M19 3v3 M17.5 4.5h3 M20 11v2 M19 12h2 M9 3v2 M8 4h2',
+  hand: 'M8 13V5.5a1.5 1.5 0 0 1 3 0V12 M11 11V4.5a1.5 1.5 0 0 1 3 0V12 M14 11V6a1.5 1.5 0 0 1 3 0v8a7 7 0 0 1-7 7h-.5A6.5 6.5 0 0 1 4 15.5l-.6-2.4a1.5 1.5 0 0 1 2.7-1.2L8 15',
+  magnet: 'M6 3v8a6 6 0 0 0 12 0V3 M6 7h4 M14 7h4 M10 3v8a2 2 0 0 0 4 0V3',
+  loupe: 'M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14z M21 21l-6-6 M10 7v6 M7 10h6',
+  compare: 'M12 3v18 M4 6h5v12H4z M15 6h5v12h-5z',
+  download: 'M12 4v11 M7 10l5 5 5-5 M5 20h14',
+  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  'eye-off': 'M3 3l18 18 M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2 M6.3 6.3C3.7 8 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 4.7-1.2 M9.9 9.9a3 3 0 0 0 4.2 4.2',
+  keyboard: 'M3 7h18v10H3z M7 11h.01 M11 11h.01 M15 11h.01 M7 14h10',
+  move: 'M12 3v18 M3 12h18 M12 3l-3 3 M12 3l3 3 M12 21l-3-3 M12 21l3-3 M3 12l3-3 M3 12l3 3 M21 12l-3-3 M21 12l-3 3',
+  sparkle: 'M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z',
+  tile: 'M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z',
 };
 
 export function Icon({ name, size = 18, ...rest }: { name: IconName; size?: number } & SVGProps<SVGSVGElement>) {

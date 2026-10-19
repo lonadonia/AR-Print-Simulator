@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Catalog, SceneItem } from '../catalog/types';
 import { SUPPORTED_FORMATS_LABEL } from '../imaging/loadImage';
-import { IconButton, Notice } from './controls';
+import { Button, IconButton, Notice } from './controls';
 import { Icon } from './icons';
 import { UploadButton } from './UploadButton';
 
@@ -22,6 +22,7 @@ export function RoomPicker({
   onRemoveUpload,
   uploadBusy,
   uploadError,
+  onCamera,
 }: {
   open: boolean;
   onClose: () => void;
@@ -33,6 +34,8 @@ export function RoomPicker({
   onRemoveUpload: (id: string) => void;
   uploadBusy: boolean;
   uploadError: string | null;
+  /** Opens the camera; omitted when the camera feature is switched off. */
+  onCamera?: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [filter, setFilter] = useState('all');
@@ -67,7 +70,14 @@ export function RoomPicker({
               {SUPPORTED_FORMATS_LABEL}. Take it straight on or at a gentle angle, in good light. The photo is processed only in this browser and is not uploaded to the website.
             </p>
           </div>
-          <UploadButton label="Upload room photo" onFile={onUpload} busy={uploadBusy} variant="primary" />
+          <div className="rv-row rv-row--nowrap">
+            {onCamera && (
+              <Button icon="camera" onClick={onCamera}>
+                Take a photo
+              </Button>
+            )}
+            <UploadButton label="Upload room photo" onFile={onUpload} busy={uploadBusy} variant="primary" />
+          </div>
         </div>
         {uploadError && <Notice tone="error">{uploadError}</Notice>}
 

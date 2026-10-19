@@ -1,14 +1,16 @@
 import { useMemo, useState, type CSSProperties, type Dispatch } from 'react';
-import type { ArtworkItem, Catalog, MaterialItem } from '../catalog/types';
+import type { ArtworkItem, Catalog, MaterialItem, TileLayout } from '../catalog/types';
 import { quadIssueMessage } from '../geometry/homography';
 import { MAX_SCALE, MIN_SCALE } from '../geometry/placement';
 import { polygonIssueMessage } from '../geometry/polygon';
 import { SUPPORTED_FORMATS_LABEL } from '../imaging/loadImage';
+import type { Palette } from '../patterns/patterns';
 import type { Action } from '../state/editor';
 import { areaValidity, effectiveMaterial } from '../state/selectors';
-import type { EditMode, EditorState, HandleRef, PrintArea, SceneDoc } from '../state/types';
+import { DEFAULT_APPEARANCE, type EditMode, type EditorState, type HandleRef, type PrintArea, type SceneDoc, type ShapeTarget } from '../state/types';
 import { Button, IconButton, Notice, NudgePad, Slider, Toggle } from './controls';
 import { Icon, type IconName } from './icons';
+import { PatternMaker } from './PatternMaker';
 import { UploadButton } from './UploadButton';
 
 export interface UploadedArtwork {
@@ -38,6 +40,9 @@ interface Props {
   onRemoveUpload: (id: string) => void;
   artworkStatus: ArtworkStatus;
   artworkAspect: (key: string) => number | null;
+  /** Generates (if needed) and applies a pattern from the Pattern Maker to the selected area. */
+  onApplyPattern: (id: string, colors: Palette) => void;
+  patternMakerEnabled: boolean;
 }
 
 const TABS: { mode: EditMode; label: string; icon: IconName }[] = [
@@ -136,26 +141,33 @@ function PointTools({ handle, dispatch, removable }: { handle: HandleRef | null;
   );
 }
 
-function DrawControls({ state, dispatch, target }: { state: EditorState; dispatch: Dispatch<Action>; target: 'area' | 'cutout' }) {
-  if (state.tool.kind !== 'draw' || state.tool.target !== target) return null;
-  const n = state.tool.points.length;
+/** Shortcuts to the stage tools for creating a new area or a cutout. */
+function ShapeTools({ state, dispatch, target }: { state: EditorState; dispatch: Dispatch<Action>; target: ShapeTarget }) {
+  const active = (kind: 'magic' | 'draw' | 'rect') => state.tool.kind === kind && state.tool.target === target;
+  const noun = target === 'area' ? 'area' : 'cutout';
   return (
-    <div className="rv-drawbox" role="status">
-      <p>
-        <strong>{target === 'area' ? 'Drawing a new area.' : 'Drawing a cutout.'}</strong> Tap or click around the {target === 'area' ? 'surface' : 'obstacle'}, then tap the first
-        point or press Finish. {n > 0 && <span className="rv-num">{n} point{n === 1 ? '' : 's'}</span>}
-      </p>
-      <div className="rv-row">
-        <Button variant="primary" icon="check" onClick={() => dispatch({ type: 'draw-finish' })} disabled={n < 3}>
-          Finish
-        </Button>
-        <Button icon="undo" onClick={() => dispatch({ type: 'draw-undo-point' })} disabled={n === 0}>
-          Undo point
-        </Button>
-        <Button variant="ghost" onClick={() => dispatch({ type: 'draw-cancel' })}>
-          Cancel
-        </Button>
-      </div>
+    <div className="rv-shapetools" role="group" aria-label={target === 'area' ? 'Add a print area' : 'Add a cutout'}>
+      <button type="button" className={`rv-shapetool${active('magic') ? ' is-active' : ''}`} aria-pressed={active('magic')} onClick={() => dispatch({ type: 'set-tool', tool: 'magic', target })}>
+        <Icon name="wand" size={18} />
+        <span>
+          <strong>Magic select</strong>
+          <span>Tap the {target === 'area' ? 'surface' : 'obstacle'}</span>
+        </span>
+      </button>
+      <button type="button" className={`rv-shapetool${active('draw') ? ' is-active' : ''}`} aria-pressed={active('draw')} onClick={() => dispatch({ type: 'set-tool', tool: 'pen', target })}>
+        <Icon name="pen" size={18} />
+        <span>
+          <strong>Draw {noun}</strong>
+          <span>Point by point</span>
+        </span>
+      </button>
+      <button type="button" className={`rv-shapetool${active('rect') ? ' is-active' : ''}`} aria-pressed={active('rect')} onClick={() => dispatch({ type: 'set-tool', tool: 'rect', target })}>
+        <Icon name="square" size={18} />
+        <span>
+          <strong>Rectangle</strong>
+          <span>Drag corner to corner</span>
+        </span>
+      </button>
     </div>
   );
 }
@@ -164,16 +176,17 @@ function ShapeTab({ area, state, dispatch, validityIssue }: Props & { validityIs
   const handle = state.selectedHandle?.kind === 'boundary' ? state.selectedHandle : null;
   return (
     <div className="rv-stack">
-      <DrawControls state={state} dispatch={dispatch} target="area" />
       <p className="rv-instr">
-        Drag the <span className="rv-key rv-key--dot" aria-hidden="true" /> points to follow the edges of the surface. Drag a <span className="rv-key rv-key--plus" aria-hidden="true">+</span> on an
-        edge to add a corner — useful for L-shaped or stepped areas.
+        Drag the <span className="rv-key rv-key--dot" aria-hidden="true" /> points to follow the edges of the surface — they snap to corners and edges found in the photo. Drag a{' '}
+        <span className="rv-key rv-key--plus" aria-hidden="true">+</span> on an edge to add a corner, or drag inside the outline to move all of it.
       </p>
       {validityIssue && <Notice tone="error">{polygonIssueMessage(validityIssue)}</Notice>}
       <PointTools handle={handle} dispatch={dispatch} removable={area.boundary.length > 3} />
       <p className="rv-hint">
-        {area.boundary.length} points · Use <strong>Cutouts</strong> to keep a hob, hood, socket or window unprinted.
+        {area.boundary.length} points · {area.exclusions.length} cutout{area.exclusions.length === 1 ? '' : 's'} · Use <strong>Cutouts</strong> to keep a hob, hood, socket or window unprinted.
       </p>
+      <h3 className="rv-subhead">Add another area</h3>
+      <ShapeTools state={state} dispatch={dispatch} target="area" />
     </div>
   );
 }
@@ -182,14 +195,11 @@ function CutoutsTab({ area, state, dispatch, issues }: Props & { issues: ReturnT
   const handle = state.selectedHandle?.kind === 'cutout' ? state.selectedHandle : null;
   return (
     <div className="rv-stack">
-      <DrawControls state={state} dispatch={dispatch} target="cutout" />
       <p className="rv-instr">Cutouts keep obstacles inside the outline — a hob, extractor hood, socket, mirror or cabinet — visible and unprinted.</p>
+      <ShapeTools state={state} dispatch={dispatch} target="cutout" />
       <div className="rv-row">
-        <Button icon="pen" variant="primary" onClick={() => dispatch({ type: 'start-draw', target: 'cutout' })} disabled={state.tool.kind === 'draw'}>
-          Draw cutout
-        </Button>
-        <Button icon="square" onClick={() => dispatch({ type: 'add-rect-cutout' })}>
-          Rectangle cutout
+        <Button icon="plus" variant="ghost" onClick={() => dispatch({ type: 'add-rect-cutout' })}>
+          Rectangle cutout in the middle
         </Button>
       </div>
       {area.exclusions.length === 0 ? (
@@ -248,7 +258,49 @@ function PerspectiveTab({ area, state, dispatch, issue }: Props & { issue: Retur
   );
 }
 
-function ArtworkTab({ area, catalog, dispatch, uploads, onUploadArtwork, uploadBusy, uploadError, onRemoveUpload, artworkStatus, artworkAspect }: Props) {
+function ArtworkTab(props: Props) {
+  const { area, patternMakerEnabled } = props;
+  const [source, setSource] = useState<'library' | 'patterns'>(() => (patternMakerEnabled && area.artworkKey?.startsWith('pattern:') ? 'patterns' : 'library'));
+  const src = patternMakerEnabled ? source : 'library';
+  return (
+    <div className="rv-stack">
+      {patternMakerEnabled && (
+        <div className="rv-seg rv-seg--block" role="group" aria-label="Design source">
+          <button type="button" className={`rv-seg__btn${src === 'library' ? ' is-active' : ''}`} aria-pressed={src === 'library'} onClick={() => setSource('library')}>
+            <Icon name="image" size={16} /> Design library
+          </button>
+          <button type="button" className={`rv-seg__btn${src === 'patterns' ? ' is-active' : ''}`} aria-pressed={src === 'patterns'} onClick={() => setSource('patterns')}>
+            <Icon name="tile" size={16} /> Pattern maker
+          </button>
+        </div>
+      )}
+      {src === 'library' ? <LibraryPicker {...props} /> : <PatternMaker currentKey={area.artworkKey} onApply={props.onApplyPattern} />}
+      <ArtworkStatusLine status={props.artworkStatus} />
+      {area.artworkKey && <PlacementControls {...props} />}
+    </div>
+  );
+}
+
+function ArtworkStatusLine({ status }: { status: ArtworkStatus }) {
+  if (status.state === 'loading')
+    return (
+      <p className="rv-hint" role="status">
+        <span className="rv-spinner rv-spinner--sm" aria-hidden="true" /> Loading artwork…
+      </p>
+    );
+  if (status.state === 'error')
+    return (
+      <Notice tone="error">
+        {status.message}{' '}
+        <button type="button" className="rv-link" onClick={status.retry}>
+          Try again
+        </button>
+      </Notice>
+    );
+  return null;
+}
+
+function LibraryPicker({ area, catalog, dispatch, uploads, onUploadArtwork, uploadBusy, uploadError, onRemoveUpload, artworkAspect }: Props) {
   const artCategories = catalog.categories.filter((c) => c.kind === 'artwork' && catalog.artwork.some((a) => a.categoryId === c.id));
   const hasUncategorised = catalog.artwork.some((a) => !a.categoryId);
   const [filter, setFilter] = useState<string>('all');
@@ -258,14 +310,10 @@ function ArtworkTab({ area, catalog, dispatch, uploads, onUploadArtwork, uploadB
     if (filter === 'uploads') return [];
     return catalog.artwork.filter((a) => a.categoryId === filter);
   }, [catalog.artwork, filter]);
-  const p = area.placement;
-  const logMin = Math.log(MIN_SCALE);
-  const logMax = Math.log(MAX_SCALE);
   const choose = (key: string) => dispatch({ type: 'set-artwork', key, artworkAspect: artworkAspect(key) });
-  const aspect = area.artworkKey ? artworkAspect(area.artworkKey) : null;
 
   return (
-    <div className="rv-stack">
+    <>
       <div className="rv-row rv-row--between">
         <h3 className="rv-subhead">Choose artwork</h3>
         <UploadButton label="Upload artwork" onFile={onUploadArtwork} busy={uploadBusy} />
@@ -317,23 +365,17 @@ function ArtworkTab({ area, catalog, dispatch, uploads, onUploadArtwork, uploadB
         )}
         {filter !== 'uploads' && filter !== 'all' && items.length === 0 && catalog.artwork.length > 0 && <p className="rv-empty rv-thumbs__empty">No artwork in this category yet.</p>}
       </div>
+    </>
+  );
+}
 
-      {artworkStatus.state === 'loading' && (
-        <p className="rv-hint" role="status">
-          <span className="rv-spinner rv-spinner--sm" aria-hidden="true" /> Loading artwork…
-        </p>
-      )}
-      {artworkStatus.state === 'error' && (
-        <Notice tone="error">
-          {artworkStatus.message}{' '}
-          <button type="button" className="rv-link" onClick={artworkStatus.retry}>
-            Try again
-          </button>
-        </Notice>
-      )}
-
-      {area.artworkKey && (
-        <>
+function PlacementControls({ area, dispatch, artworkAspect }: Props) {
+  const p = area.placement;
+  const logMin = Math.log(MIN_SCALE);
+  const logMax = Math.log(MAX_SCALE);
+  const aspect = area.artworkKey ? artworkAspect(area.artworkKey) : null;
+  return (
+    <>
           <h3 className="rv-subhead">Size and position</h3>
           <p className="rv-hint">Drag the design on the photo to move it. Pinch, or hold Ctrl/⌘ and scroll, to resize. The dashed line shows the whole design; anything outside the outline is cropped.</p>
           <div className="rv-row">
@@ -394,11 +436,9 @@ function ArtworkTab({ area, catalog, dispatch, uploads, onUploadArtwork, uploadB
             label="Repeat design as a pattern"
             checked={p.repeat}
             onChange={(v) => dispatch({ type: 'set-placement', patch: { repeat: v }, checkpoint: true })}
-            hint="Off by default: a single design runs continuously across the surface, including across tile joints."
+            hint="Off by default for pictures: a single design runs continuously across the surface, including across tile joints. Patterns repeat."
           />
-        </>
-      )}
-    </div>
+    </>
   );
 }
 
@@ -424,18 +464,52 @@ function LibraryThumb({ item, selected, onChoose }: { item: ArtworkItem; selecte
 }
 
 function swatchStyle(m: MaterialItem | null): CSSProperties {
-  const p = effectiveMaterial(m, { brightness: 0, saturation: 1, opacity: 1, shading: null, gridDensity: null });
+  const p = effectiveMaterial(m, DEFAULT_APPEARANCE);
   const base = p.tintStrength > 0 ? p.tint : '#c9c4ba';
   const layers: string[] = [];
   if (p.gloss > 0.2) layers.push(`linear-gradient(120deg, transparent 30%, rgba(255,255,255,${(p.gloss * 0.7).toFixed(2)}) 45%, transparent 60%)`);
   if (p.texture === 'brushed') layers.push('repeating-linear-gradient(0deg, rgba(0,0,0,.06) 0 1px, rgba(255,255,255,.08) 1px 2px)');
-  if (p.texture === 'tile-grid' || p.texture === 'glass-block') layers.push(`linear-gradient(${p.groutColor} 0 0) 50% 0/2px 100% no-repeat, linear-gradient(${p.groutColor} 0 0) 0 50%/100% 2px no-repeat`);
+  if (p.texture === 'glass-block' || (p.texture === 'tile-grid' && p.tileLayout === 'grid'))
+    layers.push(`linear-gradient(${p.groutColor} 0 0) 50% 0/2px 100% no-repeat, linear-gradient(${p.groutColor} 0 0) 0 50%/100% 2px no-repeat`);
+  if (p.texture === 'tile-grid' && p.tileLayout !== 'grid') layers.push(`url("${layoutSwatch(p.tileLayout, p.groutColor)}") center/100% 100%`);
   if (p.texture === 'frosted') layers.push('radial-gradient(rgba(255,255,255,.55), rgba(255,255,255,.25))');
   return {
     background: `${layers.length ? layers.join(', ') + ', ' : ''}linear-gradient(135deg, #e07a5f, #3d405b 60%, #81b29a)`,
     opacity: Math.max(0.45, p.opacity),
     boxShadow: `inset 0 0 0 999px ${base}${Math.round((p.tintStrength * 0.5) * 255).toString(16).padStart(2, '0')}`,
   };
+}
+
+const LAYOUTS: { id: TileLayout; name: string }[] = [
+  { id: 'grid', name: 'Stack grid' },
+  { id: 'brick', name: 'Brick ½' },
+  { id: 'third', name: 'Offset ⅓' },
+  { id: 'herringbone', name: 'Herringbone' },
+  { id: 'hexagon', name: 'Hexagon' },
+  { id: 'diamond', name: 'Diamond' },
+];
+
+/** Line drawings of each tile layout (24×24), used for the layout picker and material swatches. */
+const LAYOUT_PATHS: Record<TileLayout, string> = {
+  grid: 'M2 2h20v20H2z M12 2v20 M2 12h20',
+  brick: 'M2 2h20v20H2z M2 8.7h20 M2 15.3h20 M12 2v6.7 M7 8.7v6.6 M17 8.7v6.6 M12 15.3V22',
+  third: 'M2 2h20v20H2z M2 8.7h20 M2 15.3h20 M9 2v6.7 M15.7 8.7v6.6 M4.3 15.3V22 M19 15.3V22',
+  herringbone: 'M2 7l5-5 5 5 5-5 5 5 M2 14l5-5 5 5 5-5 5 5 M2 21l5-5 5 5 5-5 5 5 M12 7v7 M12 14v7 M2 7v14 M22 7v14',
+  hexagon: 'M8 4h8l4 7-4 7H8l-4-7z M4 11H1 M20 11h3 M8 18l-2 4 M16 18l2 4 M8 4L6 1 M16 4l2-3',
+  diamond: 'M12 2l10 10-10 10L2 12z M7 7l10 10 M17 7L7 17',
+};
+
+function LayoutIcon({ layout }: { layout: TileLayout }) {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d={LAYOUT_PATHS[layout]} />
+    </svg>
+  );
+}
+
+function layoutSwatch(layout: TileLayout, grout: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="${LAYOUT_PATHS[layout]}" fill="none" stroke="${grout}" stroke-width="1.6"/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 function MaterialTab({ area, catalog, dispatch }: Props) {
@@ -450,7 +524,11 @@ function MaterialTab({ area, catalog, dispatch }: Props) {
   const eff = effectiveMaterial(material, area.appearance);
   const ap = area.appearance;
   const hasGrid = eff.texture === 'tile-grid' || eff.texture === 'glass-block';
+  const isTile = eff.texture === 'tile-grid';
+  const rectLayout = eff.tileLayout === 'grid' || eff.tileLayout === 'brick' || eff.tileLayout === 'third';
   const start = () => dispatch({ type: 'checkpoint' });
+  const aspMin = Math.log(0.5);
+  const aspMax = Math.log(6);
 
   return (
     <div className="rv-stack">
@@ -520,6 +598,33 @@ function MaterialTab({ area, catalog, dispatch }: Props) {
         onStart={start}
         onChange={(v) => dispatch({ type: 'set-appearance', patch: { shading: v } })}
       />
+      {isTile && (
+        <fieldset className="rv-layouts">
+          <legend className="rv-subhead">Tile layout</legend>
+          <div className="rv-layouts__grid">
+            {LAYOUTS.map((l) => (
+              <label key={l.id} className={`rv-layout${eff.tileLayout === l.id ? ' is-selected' : ''}`}>
+                <input type="radio" name={`layout-${area.id}`} checked={eff.tileLayout === l.id} onChange={() => dispatch({ type: 'set-appearance', patch: { tileLayout: l.id }, checkpoint: true })} />
+                <LayoutIcon layout={l.id} />
+                <span>{l.name}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      {isTile && rectLayout && (
+        <Slider
+          label="Tile proportion (width : height)"
+          min={0}
+          max={1}
+          step={0.001}
+          value={(Math.log(eff.tileAspect) - aspMin) / (aspMax - aspMin)}
+          format={() => `${eff.tileAspect.toFixed(eff.tileAspect < 2 ? 2 : 1)} : 1`}
+          hint="1 : 1 square tiles, 2 : 1 or 3 : 1 for metro/subway tiles, 4 : 1 and up for planks."
+          onStart={start}
+          onChange={(v) => dispatch({ type: 'set-appearance', patch: { tileAspect: Math.round(Math.exp(aspMin + v * (aspMax - aspMin)) * 20) / 20 } })}
+        />
+      )}
       {hasGrid && (
         <Slider
           label={eff.texture === 'glass-block' ? 'Blocks across the frame height' : 'Tiles across the frame height'}

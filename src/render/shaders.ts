@@ -70,6 +70,8 @@ uniform float uGridDensity;
 uniform vec3 uGroutColor;
 uniform float uPatternAA;    // anti-aliasing width for grid lines, in cell units
 uniform float uBrushFreq;
+uniform int uTileLayout;     // 0 grid, 1 brick (1/2 offset), 2 third offset, 3 herringbone, 4 hexagon, 5 diamond
+uniform float uTileAspect;   // tile width / height for grid, brick and third-offset layouts
 ${SCENE_LIGHT}
 
 float hash(vec2 p) {
@@ -87,6 +89,65 @@ float noise1(float x) {
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 
+// Tile layouts. p is measured in tile heights (or tile short sides for herringbone). Returns the
+// distance to the nearest joint in the same units, the position inside the tile (0..1) and a
+// per-tile random value.
+float rectTile(vec2 q, float a, out vec2 local, out float id) {
+  vec2 f = fract(q);
+  local = f;
+  id = hash(floor(q) + 0.37);
+  return min(min(f.x, 1.0 - f.x) * a, min(f.y, 1.0 - f.y));
+}
+
+float tileLayout(vec2 p, int layout, float aspect, out vec2 local, out float id) {
+  float a = max(aspect, 0.05);
+  if (layout == 1 || layout == 2) {
+    float row = floor(p.y);
+    float shift = layout == 1 ? 0.5 * mod(row, 2.0) : mod(row, 3.0) / 3.0;
+    return rectTile(vec2(p.x / a + shift, p.y), a, local, id);
+  }
+  if (layout == 5) {
+    vec2 q = vec2(p.x + p.y, p.y - p.x) * 0.70710678;
+    return rectTile(q, 1.0, local, id);
+  }
+  if (layout == 4) {
+    vec2 s = vec2(1.0, 1.7320508);
+    vec4 hc = floor(vec4(p, p - vec2(0.5, 1.0)) / s.xyxy) + 0.5;
+    vec4 hh = vec4(p - hc.xy * s, p - (hc.zw + 0.5) * s);
+    bool first = dot(hh.xy, hh.xy) < dot(hh.zw, hh.zw);
+    vec2 lp = first ? hh.xy : hh.zw;
+    vec2 cid = first ? hc.xy : hc.zw + 0.5;
+    vec2 ap = abs(lp);
+    local = lp + 0.5;
+    id = hash(cid + 0.37);
+    return 0.5 - max(dot(ap, vec2(0.5, 0.8660254)), ap.x);
+  }
+  if (layout == 3) {
+    // 2:1 herringbone laid at 45 degrees: diagonal bands of alternating horizontal/vertical tiles.
+    vec2 q = vec2(p.x + p.y, p.y - p.x) * 0.70710678 * 2.0;
+    float i = floor(q.x);
+    float j = floor(q.y);
+    float d = i - j;
+    float b = floor(d / 4.0);
+    float dd = d - 4.0 * b;
+    vec2 lo;
+    vec2 size;
+    if (dd < 2.0) {
+      lo = vec2(j + 4.0 * b, j);
+      size = vec2(2.0, 1.0);
+    } else {
+      float t = i - 2.0 - 4.0 * b;
+      lo = vec2(i, t - 1.0);
+      size = vec2(1.0, 2.0);
+    }
+    vec2 r = q - lo;
+    local = r / size;
+    id = hash(lo + 0.37);
+    return 0.5 * min(min(r.x, size.x - r.x), min(r.y, size.y - r.y));
+  }
+  return rectTile(vec2(p.x / a, p.y), a, local, id);
+}
+
 void main() {
   vec2 img = vec2(gl_FragCoord.x / uResolution.x, 1.0 - gl_FragCoord.y / uResolution.y);
 
@@ -97,10 +158,12 @@ void main() {
   vec3 ah = uImgToArt * vec3(img, 1.0);
   vec2 uv = ah.xy / ah.z;                 // artwork coordinates
 
-  // Cell coordinates for tile / glass-block patterns (square cells in surface units).
+  // Tile / glass-block cells in surface units (tile height = 1 / density of the frame height).
   vec2 cell = vec2(st.x * uSurfAspect, st.y) * uGridDensity;
-  vec2 cf = fract(cell);
-  float edgeDist = min(min(cf.x, 1.0 - cf.x), min(cf.y, 1.0 - cf.y));
+  vec2 cf;
+  float tileId;
+  int layout = uTexture == 4 ? 0 : uTileLayout;
+  float edgeDist = tileLayout(cell, layout, uTexture == 4 ? 1.0 : uTileAspect, cf, tileId);
 
   if (uTexture == 4) {
     // glass block: each block slightly magnifies what is behind its centre
@@ -137,6 +200,7 @@ void main() {
     float line = 1.0 - smoothstep(w, w + uPatternAA, edgeDist);
     float bevel = 1.0 - smoothstep(w, w * 3.0 + uPatternAA, edgeDist);
     c *= 1.0 - 0.07 * bevel * uTexStrength;
+    if (uTexture == 3) c *= 1.0 + (tileId - 0.5) * 0.05 * uTexStrength;   // slight per-tile glaze variation
     if (uTexture == 4) {
       vec2 local = cf - 0.5;
       c *= 1.0 - 0.18 * dot(local, local) * uTexStrength;        // darker towards block edges

@@ -40,7 +40,7 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop',
-      testMatch: /editor\.spec\.ts|wix-harness\.spec\.ts/,
+      testMatch: /editor\.spec\.ts|pro-tools\.spec\.ts|camera\.spec\.ts|wix-harness\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, baseURL: 'http://localhost:4173/' },
     },
     {

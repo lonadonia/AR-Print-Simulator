@@ -29,6 +29,9 @@ const COLLECTIONS = {
 // Example: { accent: '#1f6f78', accentText: '#ffffff', fontFamily: 'Helvetica Neue, Arial, sans-serif', radius: 8 }
 const THEME = null;
 
+// Editor features that can be switched off for this site.
+const FEATURES = { patternMaker: true, camera: true };
+
 // Request smaller thumbnails from Wix media. Set to false if thumbnails do not load; the editor
 // then falls back to the full image.
 const USE_WIX_THUMBNAILS = true;
@@ -73,6 +76,7 @@ async function loadCatalog() {
 
   return {
     theme: THEME,
+    features: FEATURES,
     categories: categories.filter(isAvailable).map((c) => ({
       id: c._id,
       name: c.title,
@@ -117,6 +121,8 @@ async function loadCatalog() {
         textureStrength: m.textureStrength,
         gridDensity: m.gridDensity,
         groutColor: m.groutColor,
+        tileLayout: m.tileLayout,
+        tileAspect: m.tileAspect,
       }),
     })),
   };

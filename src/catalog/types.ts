@@ -45,6 +45,11 @@ export type TextureKind = 'none' | 'brushed' | 'frosted' | 'tile-grid' | 'glass-
 
 export const TEXTURE_KINDS: readonly TextureKind[] = ['none', 'brushed', 'frosted', 'tile-grid', 'glass-block'];
 
+/** How tiles are laid when the texture is `tile-grid`. */
+export type TileLayout = 'grid' | 'brick' | 'third' | 'herringbone' | 'hexagon' | 'diamond';
+
+export const TILE_LAYOUTS: readonly TileLayout[] = ['grid', 'brick', 'third', 'herringbone', 'hexagon', 'diamond'];
+
 /** Preview parameters a staff member can set per material. All are visual approximations. */
 export interface MaterialParams {
   /** 0..1 — below 1 lets the photographed surface show through (e.g. clear glass) */
@@ -68,6 +73,10 @@ export interface MaterialParams {
   gridDensity: number;
   /** #rrggbb grout/mortar line colour */
   groutColor: string;
+  /** tile arrangement for `tile-grid` */
+  tileLayout: TileLayout;
+  /** tile width / height for grid, brick and third-offset layouts (e.g. 3 for a 3:1 subway tile) */
+  tileAspect: number;
 }
 
 export interface MaterialItem {
@@ -89,8 +98,15 @@ export interface Theme {
 
 export type CatalogSource = 'wix' | 'demo';
 
+/** Optional editor features the Wix page can switch off (both on by default). */
+export interface Features {
+  patternMaker: boolean;
+  camera: boolean;
+}
+
 export interface Catalog {
   source: CatalogSource;
+  features: Features;
   categories: Category[];
   scenes: SceneItem[];
   artwork: ArtworkItem[];
@@ -110,4 +126,6 @@ export const DEFAULT_MATERIAL_PARAMS: MaterialParams = {
   textureStrength: 0.5,
   gridDensity: 6,
   groutColor: '#d9d6cf',
+  tileLayout: 'grid',
+  tileAspect: 1,
 };

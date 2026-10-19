@@ -63,10 +63,10 @@ test.describe('editor (desktop, mouse)', () => {
     await chooseArtwork(page, 'Ocean bands'); // dark blue design → printed pixels are easy to tell from the wall
     const preset = geometry.kitchen[0];
     const outlet = centroid(preset.exclusions[0]);
-    const nearOutlet = { x: outlet.x + 0.045, y: outlet.y };
-    const printed = await renderedColor(page, nearOutlet);
-    const printedRef = await photoColor(page, KITCHEN, nearOutlet);
-    expect(colorDistance(printed, printedRef)).toBeGreaterThan(40);
+    // Around the socket the design is printed (several samples, as one may fall on a tile joint).
+    const around = [0.035, 0.045, 0.055].map((dx) => ({ x: outlet.x + dx, y: outlet.y }));
+    const diffs = await Promise.all(around.map(async (p) => colorDistance(await renderedColor(page, p), await photoColor(page, KITCHEN, p))));
+    expect(Math.max(...diffs)).toBeGreaterThan(40);
     const kept = await renderedColor(page, outlet);
     const keptRef = await photoColor(page, KITCHEN, outlet);
     expect(colorDistance(kept, keptRef)).toBeLessThan(24);

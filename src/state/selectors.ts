@@ -37,5 +37,7 @@ export function effectiveMaterial(material: MaterialItem | null, appearance: App
     opacity: Math.min(1, Math.max(0.05, base.opacity * appearance.opacity)),
     shading: appearance.shading ?? base.shading,
     gridDensity: appearance.gridDensity ?? base.gridDensity,
+    tileLayout: appearance.tileLayout ?? base.tileLayout,
+    tileAspect: appearance.tileAspect ?? base.tileAspect,
   };
 }

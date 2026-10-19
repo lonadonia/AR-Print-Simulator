@@ -21,6 +21,8 @@ import {
   type Lighting,
   type PrintArea,
   type SceneDoc,
+  type ShapeTarget,
+  type Tool,
 } from './types';
 
 export const HISTORY_LIMIT = 60;
@@ -48,7 +50,14 @@ export type Action =
   | { type: 'rename-area'; id: string; name: string }
   | { type: 'reorder-area'; id: string; direction: -1 | 1 }
   | { type: 'delete-cutout'; index: number }
-  | { type: 'set-artwork'; key: string | null; artworkAspect: number | null }
+  | { type: 'set-artwork'; key: string | null; artworkAspect: number | null; placement?: Partial<Placement>; keepPlacement?: boolean }
+  | { type: 'set-tool'; tool: 'select' | 'pen' | 'rect' | 'magic' | 'hand'; target?: ShapeTarget }
+  | { type: 'set-tool-target'; target: ShapeTarget }
+  | { type: 'add-shape'; target: ShapeTarget; boundary: Point[]; holes?: Point[][]; perspective?: Quad | null; notice?: string; keepTool?: boolean }
+  | { type: 'replace-shape'; boundary: Point[]; holes: Point[][]; notice?: string }
+  | { type: 'translate-area'; dx: number; dy: number }
+  | { type: 'toggle-hidden'; id: string }
+  | { type: 'set-snap'; on: boolean }
   | { type: 'init-placement'; areaId: string; artworkAspect: number }
   | { type: 'clear-artwork-everywhere'; key: string }
   | { type: 'set-placement'; patch: Partial<Placement>; checkpoint?: boolean }
@@ -75,7 +84,29 @@ export function initialState(): EditorState {
     lighting: { ...DEFAULT_LIGHTING },
     notice: null,
     idCounter: 1,
+    snap: true,
   };
+}
+
+/** Default target for creation tools: cutouts while editing cutouts of a selected area. */
+function defaultTarget(state: EditorState): ShapeTarget {
+  return state.mode === 'cutouts' && state.selectedAreaId ? 'cutout' : 'area';
+}
+
+function toolFor(state: EditorState, tool: 'select' | 'pen' | 'rect' | 'magic' | 'hand', target?: ShapeTarget): Tool {
+  const t = target ?? defaultTarget(state);
+  switch (tool) {
+    case 'pen':
+      return { kind: 'draw', target: t, points: [] };
+    case 'rect':
+      return { kind: 'rect', target: t };
+    case 'magic':
+      return { kind: 'magic', target: t };
+    case 'hand':
+      return { kind: 'hand' };
+    default:
+      return { kind: 'none' };
+  }
 }
 
 /** Perspective frame that matches a new outline: its own corners if it has four, else its bounds. */
@@ -457,7 +488,13 @@ export function editorReducer(state: EditorState, action: Action): EditorState {
       return updateSelected(
         state,
         (a) => {
-          if (a.artworkKey === action.key) return null;
+          if (a.artworkKey === action.key && !action.placement) return null;
+          if (action.keepPlacement && a.placementInitialized) {
+            return { ...a, artworkKey: action.key, placement: { ...a.placement, ...action.placement } };
+          }
+          if (action.placement) {
+            return { ...a, artworkKey: action.key, placement: { ...a.placement, ...action.placement }, placementInitialized: true };
+          }
           // A newly chosen design is fitted to cover the outline (keeping rotation and repeat).
           // If its proportions are not known yet (still loading), the fit happens on load.
           const next: PrintArea = { ...a, artworkKey: action.key, placementInitialized: false };
@@ -572,6 +609,105 @@ export function editorReducer(state: EditorState, action: Action): EditorState {
       const sel = target.some((a) => a.id === state.selectedAreaId) ? state.selectedAreaId : (target[0]?.id ?? null);
       return { ...withDoc(state, next), selectedAreaId: sel, selectedHandle: null, tool: { kind: 'none' } };
     }
+
+    case 'set-tool': {
+      if (action.tool !== 'select' && action.tool !== 'hand' && !currentDoc(state)) return state;
+      const tool = toolFor(state, action.tool, action.target);
+      if (tool.kind !== 'none' && tool.kind !== 'hand' && tool.target === 'cutout' && !state.selectedAreaId) {
+        return notice({ ...state, tool: toolFor(state, action.tool, 'area') }, 'info', 'Select a print area first to add cutouts to it. Creating a new area instead.');
+      }
+      return {
+        ...state,
+        tool,
+        selectedHandle: null,
+        mode: tool.kind !== 'none' && tool.kind !== 'hand' ? (tool.target === 'cutout' ? 'cutouts' : state.mode === 'cutouts' ? 'shape' : state.mode) : state.mode,
+      };
+    }
+
+    case 'set-tool-target': {
+      const t = state.tool;
+      if (t.kind === 'none' || t.kind === 'hand') return state;
+      if (action.target === 'cutout' && !state.selectedAreaId) return notice(state, 'error', 'Select a print area before adding a cutout.');
+      return { ...state, tool: { ...t, target: action.target }, mode: action.target === 'cutout' ? 'cutouts' : state.mode === 'cutouts' ? 'shape' : state.mode };
+    }
+
+    case 'add-shape': {
+      const doc = currentDoc(state);
+      if (!doc) return state;
+      const pts = action.boundary.map(clampPoint);
+      const issue = validatePolygon(pts, doc.aspect);
+      if (issue) return notice(state, 'error', polygonIssueMessage(issue));
+      const holes = (action.holes ?? []).map((h) => h.map(clampPoint)).filter((h) => !validatePolygon(h, doc.aspect));
+      if (action.target === 'cutout') {
+        if (!state.selectedAreaId) return notice(state, 'error', 'Select a print area before adding a cutout.');
+        const s1 = updateSelected(state, (a) => ({ ...a, exclusions: [...a.exclusions, pts] }), true);
+        const s2: EditorState = { ...s1, tool: action.keepTool ? state.tool : { kind: 'none' }, mode: 'cutouts', selectedHandle: null };
+        return action.notice ? notice(s2, 'info', action.notice) : s2;
+      }
+      const [id, s1] = nextId(state);
+      const perspective = action.perspective && !validateQuad(action.perspective, doc.aspect) ? action.perspective : undefined;
+      const area = createArea(id, `Area ${doc.nextNumber}`, pts, doc.aspect, { exclusions: holes, perspective });
+      const s2 = setAreas(s1, [...doc.areas, area], true);
+      const d2 = currentDoc(s2)!;
+      const s3: EditorState = {
+        ...withDoc(s2, { ...d2, nextNumber: d2.nextNumber + 1 }),
+        tool: action.keepTool ? state.tool : { kind: 'none' },
+        selectedAreaId: id,
+        mode: 'shape',
+        selectedHandle: null,
+      };
+      return action.notice ? notice(s3, 'info', action.notice) : s3;
+    }
+
+    case 'replace-shape': {
+      // New outline and cutouts for the selected area (magic add / subtract); everything else stays.
+      const doc = currentDoc(state);
+      if (!doc || !state.selectedAreaId) return state;
+      const pts = action.boundary.map(clampPoint);
+      const issue = validatePolygon(pts, doc.aspect);
+      if (issue) return notice(state, 'error', polygonIssueMessage(issue));
+      const holes = action.holes.map((h) => h.map(clampPoint)).filter((h) => !validatePolygon(h, doc.aspect));
+      const s1 = updateSelected(state, (a) => ({ ...a, boundary: pts, exclusions: holes }), true);
+      const s2: EditorState = { ...s1, selectedHandle: null };
+      return action.notice ? notice(s2, 'info', action.notice) : s2;
+    }
+
+    case 'translate-area':
+      return updateSelected(
+        state,
+        (a) => {
+          // Keep every point of the outline, cutouts and frame inside the photo.
+          const all = [...a.boundary, ...a.exclusions.flat()];
+          let dx = action.dx;
+          let dy = action.dy;
+          for (const p of all) {
+            dx = Math.min(Math.max(dx, -p.x), 1 - p.x);
+            dy = Math.min(Math.max(dy, -p.y), 1 - p.y);
+          }
+          if (dx === 0 && dy === 0) return null;
+          const mv = (p: Point) => ({ x: p.x + dx, y: p.y + dy });
+          return {
+            ...a,
+            boundary: a.boundary.map(mv),
+            exclusions: a.exclusions.map((c) => c.map(mv)),
+            perspective: a.perspective.map((p) => clampPoint(mv(p))) as Quad,
+          };
+        },
+        false,
+      );
+
+    case 'toggle-hidden': {
+      const doc = currentDoc(state);
+      if (!doc) return state;
+      return setAreas(
+        state,
+        doc.areas.map((a) => (a.id === action.id ? { ...a, hidden: !a.hidden } : a)),
+        true,
+      );
+    }
+
+    case 'set-snap':
+      return { ...state, snap: action.on };
 
     case 'notify':
       return notice(state, action.tone, action.text);

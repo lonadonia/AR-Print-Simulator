@@ -1,4 +1,4 @@
-import type { MaterialParams, TextureKind } from '../catalog/types';
+import type { MaterialParams, TextureKind, TileLayout } from '../catalog/types';
 import type { Mat3 } from '../geometry/homography';
 import { polygonBounds, type Point } from '../geometry/polygon';
 import { BACKGROUND_FS, POSITION_VS, PRINT_FS, STENCIL_FS } from './shaders';
@@ -64,6 +64,15 @@ const TEXTURE_CODES: Record<TextureKind, number> = {
   frosted: 2,
   'tile-grid': 3,
   'glass-block': 4,
+};
+
+const TILE_LAYOUT_CODES: Record<TileLayout, number> = {
+  grid: 0,
+  brick: 1,
+  third: 2,
+  herringbone: 3,
+  hexagon: 4,
+  diamond: 5,
 };
 
 const CONTEXT_ATTRIBUTES: WebGLContextAttributes = {
@@ -200,6 +209,8 @@ export class Renderer {
         'uGroutColor',
         'uPatternAA',
         'uBrushFreq',
+        'uTileLayout',
+        'uTileAspect',
         'uExposure',
         'uWarmth',
       ]),
@@ -429,6 +440,8 @@ export class Renderer {
       const cellPx = area.frameHeightPx / Math.max(1, m.gridDensity);
       gl.uniform1f(u.uPatternAA, Math.min(0.25, Math.max(0.004, 1.5 / Math.max(cellPx, 1))));
       gl.uniform1f(u.uBrushFreq, Math.min(1400, Math.max(30, area.frameHeightPx / 2.2)));
+      gl.uniform1i(u.uTileLayout, TILE_LAYOUT_CODES[m.tileLayout] ?? 0);
+      gl.uniform1f(u.uTileAspect, m.tileAspect);
       gl.uniform1f(u.uExposure, frame.exposure);
       gl.uniform1f(u.uWarmth, frame.warmth);
 
@@ -441,6 +454,28 @@ export class Renderer {
       gl.activeTexture(gl.TEXTURE0);
     }
     gl.disable(gl.STENCIL_TEST);
+  }
+
+  /**
+   * Renders `frame` at `width`×`height` and returns a 2D copy of the result (for saving an image).
+   * The caller re-renders the normal view afterwards.
+   */
+  snapshot(frame: RenderFrame, width: number, height: number): HTMLCanvasElement | null {
+    if (this.lost || this.gl.isContextLost()) return null;
+    const prevW = this.canvas.width;
+    const prevH = this.canvas.height;
+    const limit = Math.min(this.maxTextureSize, 4096);
+    const s = Math.min(1, limit / Math.max(width, height));
+    this.canvas.width = Math.max(1, Math.floor(width * s));
+    this.canvas.height = Math.max(1, Math.floor(height * s));
+    this.render(frame);
+    const out = document.createElement('canvas');
+    out.width = this.canvas.width;
+    out.height = this.canvas.height;
+    out.getContext('2d')?.drawImage(this.canvas, 0, 0);
+    this.canvas.width = prevW;
+    this.canvas.height = prevH;
+    return out;
   }
 
   dispose(): void {

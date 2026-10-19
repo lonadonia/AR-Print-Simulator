@@ -46,11 +46,12 @@ test.describe('editor (phone, touch)', () => {
     await page.touchscreen.tap(inside.x, inside.y);
     await expect(page.locator('.rv-arealist__item.is-selected')).toContainText('Backsplash');
 
-    // Drag an outline point with a finger.
+    // Drag an outline point with a finger (far enough to leave the snapping zone of the
+    // photo's edges and corners).
     await tab(page, 'Shape').tap();
     const before = await handlePositions(page, 'boundary');
     const h = await center(page, '.rv-handle--boundary', 2);
-    await touchDrag(cdp, h, { x: h.x - 12, y: h.y - 10 });
+    await touchDrag(cdp, h, { x: h.x - 28, y: h.y - 22 });
     const after = await handlePositions(page, 'boundary');
     expect(after[2].x).toBeLessThan(before[2].x - 0.01);
     expect(after[0]).toEqual(before[0]);

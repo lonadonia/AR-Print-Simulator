@@ -1,6 +1,7 @@
 #!/usr/bin/env node
+/* global window, document, DOMMatrix -- used inside page.evaluate() callbacks that run in the browser */
 /**
- * Generates the bundled DEMO content: three illustrated sample rooms and eight artworks.
+ * Generates the bundled DEMO content: illustrated sample rooms and the demo artwork library.
  *
  * Everything here is drawn from code (simple 3D boxes projected through a pinhole camera, plus
  * SVG patterns), so the assets are original and free to use. They are development placeholders,
@@ -14,7 +15,10 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
+import ts from 'typescript';
+import { EXTRA_SVG, PATTERN_LIBRARY } from './demo-artwork-extra.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'public', 'demo');
@@ -647,11 +651,48 @@ async function main() {
     geometry[name] = presets;
     console.log('room', name);
   }
-  for (const [name, build] of Object.entries(ARTWORK)) {
+  for (const [name, build] of Object.entries({ ...ARTWORK, ...EXTRA_SVG })) {
     const svg = build();
     await render(page, svg, ART_W, ART_H, join(OUT, 'artwork', `${name}.jpg`), 88);
     await render(page, svg, 320, 200, join(OUT, 'artwork', 'thumbs', `${name}.jpg`), 80);
     console.log('artwork', name);
+  }
+  // Designs drawn with the app's own Pattern Maker (src/patterns/patterns.ts).
+  const source = await readFile(join(ROOT, 'src', 'patterns', 'patterns.ts'), 'utf8');
+  const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ES2020 } }).outputText;
+  await page.setContent('<!doctype html><html><body></body></html>');
+  await page.addScriptTag({ type: 'module', content: `${js}\nwindow.P = { patternById, renderPattern };` });
+  await page.waitForFunction(() => 'P' in window);
+  for (const [name, [id, colors, across]] of Object.entries(PATTERN_LIBRARY)) {
+    for (const [w, h, dir, q] of [
+      [ART_W, ART_H, 'artwork', 0.9],
+      [320, 200, 'artwork/thumbs', 0.8],
+    ]) {
+      const dataUrl = await page.evaluate(
+        ({ id, colors, across, w, h, q }) => {
+          const def = window.P.patternById(id);
+          const tileW = def.tile ? w / across : w;
+          const tile = window.P.renderPattern(def, colors, Math.max(64, Math.round(tileW * 1.5)));
+          const c = document.createElement('canvas');
+          c.width = w;
+          c.height = h;
+          const ctx = c.getContext('2d');
+          if (def.tile) {
+            const pat = ctx.createPattern(tile, 'repeat');
+            pat.setTransform(new DOMMatrix().scale(tileW / tile.width));
+            ctx.fillStyle = pat;
+            ctx.fillRect(0, 0, w, h);
+          } else {
+            ctx.drawImage(tile, 0, 0, w, h);
+          }
+          return c.toDataURL('image/jpeg', q);
+        },
+        { id, colors, across, w, h, q },
+      );
+      await mkdir(join(OUT, dir), { recursive: true });
+      await writeFile(join(OUT, dir, `${name}.jpg`), Buffer.from(dataUrl.split(',')[1], 'base64'));
+    }
+    console.log('pattern artwork', name);
   }
   await browser.close();
   await writeFile(join(ROOT, 'src', 'catalog', 'demoGeometry.json'), JSON.stringify(geometry, null, 1) + '\n');

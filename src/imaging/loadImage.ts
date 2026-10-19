@@ -250,6 +250,31 @@ export async function loadRemoteImage(url: string, purpose: ImagePurpose, maxTex
   };
 }
 
+/**
+ * Builds a working image from any drawable source (camera frame, generated pattern canvas),
+ * applying the same size limits as uploads.
+ */
+export function imageFromSource(source: CanvasImageSource, width: number, height: number, purpose: ImagePurpose, maxTextureSize: number): LoadedImage {
+  if (!(width > 0 && height > 0)) throw new ImageLoadError('corrupt', 'The image is empty.');
+  const size = workingSize(width, height, purpose, maxTextureSize);
+  const canvas = document.createElement('canvas');
+  canvas.width = size.width;
+  canvas.height = size.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new ImageLoadError('corrupt', 'The browser could not prepare this image (out of memory?).');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, 0, 0, size.width, size.height);
+  return {
+    canvas,
+    width: size.width,
+    height: size.height,
+    sourceWidth: width,
+    sourceHeight: height,
+    luminance: purpose === 'room' ? computeLuminanceGrid(canvas) : null,
+  };
+}
+
 /** Mean luminance of the grid cells whose centres fall inside `contains`. */
 export function meanLuminance(grid: LuminanceGrid | null, contains: (x: number, y: number) => boolean): number {
   if (!grid) return 0.6;

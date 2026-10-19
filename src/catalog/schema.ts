@@ -2,6 +2,7 @@ import type { Point } from '../geometry/polygon';
 import {
   DEFAULT_MATERIAL_PARAMS,
   TEXTURE_KINDS,
+  TILE_LAYOUTS,
   type ArtworkItem,
   type Catalog,
   type CatalogSource,
@@ -13,6 +14,7 @@ import {
   type SceneItem,
   type TextureKind,
   type Theme,
+  type TileLayout,
 } from './types';
 
 /**
@@ -162,6 +164,11 @@ function materialParams(v: unknown): MaterialParams {
     textureStrength: num(r.textureStrength, d.textureStrength, 0, 1),
     gridDensity: num(r.gridDensity, d.gridDensity, 1, 40),
     groutColor: color(r.groutColor, d.groutColor),
+    tileLayout:
+      typeof r.tileLayout === 'string' && (TILE_LAYOUTS as readonly string[]).includes(r.tileLayout.trim().toLowerCase())
+        ? (r.tileLayout.trim().toLowerCase() as TileLayout)
+        : d.tileLayout,
+    tileAspect: num(r.tileAspect, d.tileAspect, 0.2, 6),
   };
 }
 
@@ -299,9 +306,11 @@ export function parseCatalog(raw: unknown, opts: ParseOptions): ParseResult {
     });
   }
 
+  const feat = isRecord(root?.features) ? (root!.features as Rec) : {};
   return {
     catalog: {
       source: opts.source,
+      features: { patternMaker: feat.patternMaker !== false, camera: feat.camera !== false },
       categories: byOrder(categories, (c) => c.name),
       scenes: byOrder(scenes, (s) => s.title),
       artwork: byOrder(artwork, (a) => a.title),

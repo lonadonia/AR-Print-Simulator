@@ -2,7 +2,7 @@ import type { Dispatch } from 'react';
 import type { Action } from '../state/editor';
 import { areaValidity } from '../state/selectors';
 import type { EditorState, PrintArea, SceneDoc } from '../state/types';
-import { Button, IconButton } from './controls';
+import { IconButton } from './controls';
 import { Icon } from './icons';
 
 export function AreaList({
@@ -18,7 +18,7 @@ export function AreaList({
   describeArtwork: (a: PrintArea) => { title: string; thumb: string | null } | null;
   describeMaterial: (a: PrintArea) => string | null;
 }) {
-  const drawingArea = state.tool.kind === 'draw' && state.tool.target === 'area';
+  const active = (kind: 'draw' | 'magic') => state.tool.kind === kind && state.tool.target === 'area';
   return (
     <section className="rv-section" aria-labelledby="rv-areas-title">
       <header className="rv-section__head">
@@ -28,17 +28,34 @@ export function AreaList({
           </span>
           Print areas
         </h2>
-        <div className="rv-section__actions">
-          <Button icon="pen" onClick={() => dispatch({ type: 'start-draw', target: 'area' })} disabled={drawingArea} variant="primary">
-            Draw area
-          </Button>
-          <IconButton icon="square" label="Add rectangle area" onClick={() => dispatch({ type: 'add-rect-area' })} />
-        </div>
+        <span className="rv-section__count rv-num">{doc.areas.length}</span>
       </header>
+      <div className="rv-addbar" role="group" aria-label="Add a print area">
+        <button type="button" className={`rv-btn rv-btn--primary${active('magic') ? ' is-active' : ''}`} aria-pressed={active('magic')} onClick={() => dispatch({ type: 'set-tool', tool: 'magic', target: 'area' })} title="Tap a surface on the photo (W)">
+          <Icon name="wand" />
+          <span>Magic select</span>
+        </button>
+        <button type="button" className={`rv-btn${active('draw') ? ' is-active' : ''}`} aria-pressed={active('draw')} onClick={() => dispatch({ type: 'set-tool', tool: 'pen', target: 'area' })} title="Click each corner of the surface (P)">
+          <Icon name="pen" />
+          <span>Draw area</span>
+        </button>
+        <IconButton icon="square" label="Add rectangle area" onClick={() => dispatch({ type: 'add-rect-area' })} className="rv-iconbtn--boxed" />
+      </div>
       {doc.areas.length === 0 ? (
-        <p className="rv-empty">
-          No print areas yet. Choose <strong>Draw area</strong> and tap around the surface you want printed, or add a rectangle and drag its corners.
-        </p>
+        <div className="rv-empty rv-empty--areas">
+          <p>No print areas yet.</p>
+          <ol className="rv-howto">
+            <li>
+              <Icon name="wand" size={15} /> <strong>Magic select</strong> — tap a wall, door or glass panel and its outline is found for you.
+            </li>
+            <li>
+              <Icon name="pen" size={15} /> <strong>Draw area</strong> — click each corner; points snap to edges in the photo.
+            </li>
+            <li>
+              <Icon name="square" size={15} /> <strong>Rectangle</strong> — add one and drag its corners into place.
+            </li>
+          </ol>
+        </div>
       ) : (
         <ol className="rv-arealist">
           {doc.areas.map((a, i) => {
@@ -48,7 +65,7 @@ export function AreaList({
             const isSel = a.id === state.selectedAreaId;
             const problem = v.boundary || v.perspective || v.cutouts.some(Boolean);
             return (
-              <li key={a.id} className={`rv-arealist__item${isSel ? ' is-selected' : ''}`}>
+              <li key={a.id} className={`rv-arealist__item${isSel ? ' is-selected' : ''}${a.hidden ? ' is-hidden' : ''}`}>
                 <button
                   type="button"
                   className="rv-arealist__select"
@@ -77,6 +94,16 @@ export function AreaList({
                       )}
                     </span>
                   </span>
+                </button>
+                <button
+                  type="button"
+                  className="rv-arealist__eye"
+                  aria-pressed={!a.hidden}
+                  aria-label={a.hidden ? `Show ${a.name} in the preview` : `Hide ${a.name} in the preview`}
+                  title={a.hidden ? 'Hidden — click to show' : 'Visible — click to hide'}
+                  onClick={() => dispatch({ type: 'toggle-hidden', id: a.id })}
+                >
+                  <Icon name={a.hidden ? 'eye-off' : 'eye'} size={16} />
                 </button>
                 {isSel && (
                   <div className="rv-arealist__tools" role="group" aria-label={`Actions for ${a.name}`}>

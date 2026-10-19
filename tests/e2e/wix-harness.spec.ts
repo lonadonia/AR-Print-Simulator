@@ -25,6 +25,20 @@ test.describe('Wix page integration (local simulator)', () => {
     await expect(page.locator('#log')).toContainText('editor → page: catalog-received');
   });
 
+  test('camera inside an iframe without camera permission falls back to the camera app honestly', async ({ page }) => {
+    await page.goto(`${HOST}?mode=ok`);
+    const f = editor(page);
+    await expect(f.locator('.rv-roombtn__name')).toHaveText('Harness kitchen');
+    await f.getByRole('button', { name: 'Take a room photo with the camera' }).click();
+    const cam = f.getByRole('dialog', { name: 'Camera' });
+    await expect(cam.getByRole('alert')).toContainText('does not allow live camera access');
+    await expect(cam.getByRole('button', { name: 'Take a photo with the camera app' })).toBeVisible();
+    await expect(cam.locator('input[type=file][capture=environment]')).toHaveCount(1);
+    await expect(cam.getByRole('button', { name: 'Capture photo' })).toBeDisabled();
+    await cam.getByRole('button', { name: 'Close camera' }).click();
+    await expect(cam).toHaveCount(0);
+  });
+
   test('A15 CMS failure shows an honest error and recovers on retry', async ({ page }) => {
     await page.goto(`${HOST}?mode=error`);
     const f = editor(page);
