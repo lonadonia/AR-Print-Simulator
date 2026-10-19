@@ -338,6 +338,7 @@ export function Editor({ catalog, catalogUnavailable }: { catalog: Catalog; cata
             materialFor={materialFor}
             dispatch={dispatch}
             zoom={zoom}
+            photoDescription={sceneForKey(activeKey)?.description || undefined}
             onRendererReady={(max) => {
               imageStore.maxTextureSize = max;
             }}

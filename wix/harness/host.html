@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Local Wix page simulator — Room Visualizer</title>
+    <style>
+      body { margin: 0; font: 15px/1.4 system-ui, sans-serif; background: #eceae4; color: #1c1d20; }
+      header { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: #fff; border-bottom: 1px solid #d8d4ca; }
+      header strong { margin-right: auto; }
+      label { font-size: 14px; }
+      .frame-wrap { max-width: 1280px; margin: 16px auto; padding: 0 16px; }
+      iframe { width: 100%; height: var(--h, 820px); border: 1px solid #c9c4b8; border-radius: 8px; background: #fff; display: block; }
+      #log { max-width: 1280px; margin: 0 auto 24px; padding: 0 16px; font: 12px/1.5 ui-monospace, monospace; white-space: pre-wrap; color: #444; }
+    </style>
+  </head>
+  <body>
+    <!--
+      LOCAL DEVELOPMENT HARNESS — not part of the delivered site.
+      It plays the role of the Wix page: it embeds the editor in an iframe on a different origin
+      and answers the editor's messages exactly like wix/velo/room-visualizer-page.js does,
+      using the browser's real cross-origin postMessage. It cannot prove Wix-specific behaviour
+      (Velo's wrapped events, Wix sandboxing, CMS permissions); those need the real site.
+    -->
+    <header>
+      <strong>Wix page simulator</strong>
+      <label>Catalog
+        <select id="mode">
+          <option value="ok">Normal catalog</option>
+          <option value="empty">Empty catalog</option>
+          <option value="missing">Catalog with a missing image</option>
+          <option value="error">CMS error, then success on retry</option>
+          <option value="silent">Page code not installed (no answer)</option>
+          <option value="push">Untrusted page pushing data (open on 127.0.0.1)</option>
+        </select>
+      </label>
+      <label>Height <select id="height"><option>820</option><option>700</option><option>600</option></select> px</label>
+    </header>
+    <div class="frame-wrap"><iframe id="roomVisualizer" title="Room visualizer" allow="fullscreen"></iframe></div>
+    <div id="log"></div>
+    <script>
+      const EDITOR_URL = new URLSearchParams(location.search).get('editor') || 'http://localhost:4175/';
+      const EDITOR_ORIGIN = new URL(EDITOR_URL).origin;
+      const PROTOCOL = 'uv-room-visualizer';
+      const VERSION = 1;
+      const MEDIA = location.origin + '/media';
+      const params = new URLSearchParams(location.search);
+      const mode = params.get('mode') || 'ok';
+      document.getElementById('mode').value = mode;
+      document.getElementById('mode').onchange = (e) => { params.set('mode', e.target.value); location.search = params; };
+      const heightSel = document.getElementById('height');
+      heightSel.value = params.get('height') || '820';
+      document.documentElement.style.setProperty('--h', heightSel.value + 'px');
+      heightSel.onchange = (e) => { params.set('height', e.target.value); location.search = params; };
+
+      const frame = document.getElementById('roomVisualizer');
+      const log = (t) => { document.getElementById('log').textContent += new Date().toISOString().slice(11, 19) + '  ' + t + '\n'; };
+      let failuresLeft = mode === 'error' ? 1 : 0;
+
+      async function buildCatalog() {
+        if (mode === 'empty') return { categories: [], scenes: [], artwork: [], materials: [] };
+        const geometry = await (await fetch('/geometry.json')).json();
+        const art = (id, title, cat, file, order) => ({ id, title, categoryId: cat, order,
+          imageUrl: mode === 'missing' && id === 'art-terrazzo' ? MEDIA + '/artwork/does-not-exist.jpg' : `${MEDIA}/artwork/${file}.jpg`,
+          thumbnailUrl: mode === 'missing' && id === 'art-terrazzo' ? MEDIA + '/artwork/thumbs/does-not-exist.jpg' : `${MEDIA}/artwork/thumbs/${file}.jpg` });
+        return {
+          theme: { accent: '#7a3e9d', radius: 6 },
+          categories: [
+            { id: 'c-kitchen', name: 'Kitchens', kind: 'room', order: 1 },
+            { id: 'c-bath', name: 'Bathrooms', kind: 'room', order: 2 },
+            { id: 'c-stone', name: 'Stone', kind: 'artwork', order: 1 },
+            { id: 'c-pattern', name: 'Patterns', kind: 'artwork', order: 2 },
+            { id: 'c-glass', name: 'Glass', kind: 'material', order: 1 },
+            { id: 'c-tile', name: 'Tile', kind: 'material', order: 2 },
+          ],
+          scenes: [
+            { id: 'r-kitchen', title: 'Harness kitchen', categoryId: 'c-kitchen', imageUrl: MEDIA + '/rooms/kitchen.jpg', thumbnailUrl: MEDIA + '/rooms/thumbs/kitchen.jpg', description: 'Kitchen', order: 1, presets: geometry.kitchen },
+            { id: 'r-bath', title: 'Harness bathroom', categoryId: 'c-bath', imageUrl: MEDIA + '/rooms/bathroom.jpg', thumbnailUrl: MEDIA + '/rooms/thumbs/bathroom.jpg', description: 'Bathroom', order: 2, presets: [] },
+          ],
+          artwork: [
+            art('art-carrara', 'Carrara (CMS)', 'c-stone', 'carrara', 1),
+            art('art-terrazzo', 'Terrazzo (CMS)', 'c-stone', 'terrazzo', 2),
+            art('art-grid', 'Grid (CMS)', 'c-pattern', 'grid', 3),
+          ],
+          materials: [
+            { id: 'mat-gloss-tile', name: 'Gloss tile (CMS)', categoryId: 'c-tile', order: 1, params: { texture: 'tile-grid', gridDensity: 5, gloss: 0.4 } },
+            { id: 'mat-clear', name: 'Clear glass (CMS)', categoryId: 'c-glass', order: 2, params: { opacity: 0.7, gloss: 0.6 } },
+          ],
+        };
+      }
+
+      window.addEventListener('message', async (event) => {
+        // Same checks a careful host should make: expected origin and the editor's own window.
+        if (event.origin !== EDITOR_ORIGIN || event.source !== frame.contentWindow) return;
+        const msg = event.data;
+        if (!msg || msg.protocol !== PROTOCOL || msg.version !== VERSION) return;
+        log('editor → page: ' + msg.type + (msg.counts ? ' ' + JSON.stringify(msg.counts) : ''));
+        if (mode === 'silent') return;
+        if (msg.type !== 'ready' && msg.type !== 'retry-catalog') return;
+        if (failuresLeft > 0) {
+          failuresLeft--;
+          frame.contentWindow.postMessage({ protocol: PROTOCOL, version: VERSION, type: 'catalog-error', requestId: msg.requestId, message: 'Simulated CMS failure.' }, EDITOR_ORIGIN);
+          log('page → editor: catalog-error');
+          return;
+        }
+        const payload = await buildCatalog();
+        frame.contentWindow.postMessage({ protocol: PROTOCOL, version: VERSION, type: 'catalog', requestId: msg.requestId, payload }, EDITOR_ORIGIN);
+        log('page → editor: catalog (' + payload.scenes.length + ' rooms, ' + payload.artwork.length + ' artworks)');
+      });
+
+      if (mode === 'push') {
+        // Simulates a page that is NOT allow-listed trying to inject a catalog unasked.
+        setInterval(async () => {
+          const payload = await buildCatalog();
+          frame.contentWindow && frame.contentWindow.postMessage({ protocol: PROTOCOL, version: VERSION, type: 'catalog', payload }, '*');
+        }, 1000);
+      }
+
+      // Loading the editor after the listener exists is not required: the editor repeats `ready`.
+      setTimeout(() => { frame.src = EDITOR_URL; }, Number(params.get('delay') || 0));
+    </script>
+  </body>
+</html>

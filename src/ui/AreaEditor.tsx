@@ -403,7 +403,9 @@ function ArtworkTab({ area, catalog, dispatch, uploads, onUploadArtwork, uploadB
 }
 
 function LibraryThumb({ item, selected, onChoose }: { item: ArtworkItem; selected: boolean; onChoose: () => void }) {
-  const [failed, setFailed] = useState(false);
+  // Try the thumbnail, then the full image, then show a placeholder.
+  const [src, setSrc] = useState<string | null>(item.thumbnailUrl ?? item.imageUrl);
+  const failed = src === null;
   return (
     <div className="rv-thumb-wrap">
       <button type="button" id={`rv-art-library:${item.id}`} role="option" aria-selected={selected} className={`rv-thumb${selected ? ' is-selected' : ''}`} onClick={onChoose}>
@@ -413,7 +415,7 @@ function LibraryThumb({ item, selected, onChoose }: { item: ArtworkItem; selecte
             Image unavailable
           </span>
         ) : (
-          <img src={item.thumbnailUrl ?? item.imageUrl} alt="" loading="lazy" onError={() => setFailed(true)} />
+          <img src={src} alt="" loading="lazy" onError={() => setSrc((cur) => (cur !== item.imageUrl ? item.imageUrl : null))} />
         )}
         <span>{item.title}</span>
       </button>

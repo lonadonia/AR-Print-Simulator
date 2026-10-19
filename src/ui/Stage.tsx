@@ -48,6 +48,8 @@ export interface StageProps {
   dispatch: Dispatch<Action>;
   zoom: number;
   emptyState: ReactNode;
+  /** Accessible description of the room photo (from the CMS). */
+  photoDescription?: string;
   onRendererReady?: (maxTextureSize: number) => void;
   onKeepTextures?: (keys: Set<string>) => void;
 }
@@ -263,6 +265,16 @@ export function Stage(props: StageProps) {
     setDragging(true);
   };
 
+  // While an artwork gesture is in progress, a further finger anywhere on the photo (even on a
+  // badge or handle) joins it as a pinch instead of triggering that control.
+  const onPointerDownCapture = (e: ReactPointerEvent) => {
+    const d = dragRef.current;
+    if (d && (d.kind === 'pan' || d.kind === 'pinch') && !pointersRef.current.has(e.pointerId)) {
+      e.preventDefault();
+      startPan(e);
+    }
+  };
+
   const onPointerDown = (e: ReactPointerEvent) => {
     if (e.button !== 0) return;
     dragRef.current = { kind: 'tap', pointerId: e.pointerId, x: e.clientX, y: e.clientY };
@@ -420,6 +432,7 @@ export function Stage(props: StageProps) {
           ref={sizerRef}
           className={`rv-stage__sizer${drawing ? ' is-drawing' : ''}${dragging ? ' is-dragging' : ''}${state.mode === 'artwork' ? ' is-artwork' : ''}`}
           style={{ width: showPhoto ? W : 0, height: showPhoto ? Hh : 0, visibility: showPhoto ? 'visible' : 'hidden' }}
+          onPointerDownCapture={onPointerDownCapture}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={(e) => endPointer(e, false)}
@@ -427,7 +440,7 @@ export function Stage(props: StageProps) {
           onPointerLeave={() => setHover(null)}
           data-testid="stage"
         >
-          <canvas ref={canvasRef} className="rv-stage__canvas" role="img" aria-label={doc ? `Room preview with ${doc.areas.length} print area${doc.areas.length === 1 ? '' : 's'}` : 'Room preview'} />
+          <canvas ref={canvasRef} className="rv-stage__canvas" role="img" aria-label={`${props.photoDescription ? `${props.photoDescription} ` : 'Room preview. '}${doc ? `${doc.areas.length} print area${doc.areas.length === 1 ? '' : 's'}.` : ''}`} />
           <span className="rv-crop rv-crop--tl" aria-hidden="true" />
           <span className="rv-crop rv-crop--tr" aria-hidden="true" />
           <span className="rv-crop rv-crop--bl" aria-hidden="true" />

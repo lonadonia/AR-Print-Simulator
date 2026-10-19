@@ -647,12 +647,13 @@ img {
   touch-action: none;
 }
 
+/* In normal flow above the photo, so it never covers points the user wants to tap. */
 .rv-stagebar {
-  position: absolute;
+  position: relative;
   z-index: 6;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  flex: none;
+  align-self: center;
+  margin: 8px 8px 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1694,7 +1695,7 @@ img {
   }
 
   .rv-stagebar {
-    top: 6px;
+    margin-top: 6px;
     font-size: 13px;
     gap: 6px;
     max-width: calc(100% - 12px);
@@ -1783,4 +1784,8 @@ img {
   .rv-badge {
     forced-color-adjust: none;
   }
+}
+
+.rv-section > .rv-hint {
+  margin-top: 8px;
 }

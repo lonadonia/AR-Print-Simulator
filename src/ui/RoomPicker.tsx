@@ -121,7 +121,8 @@ export function RoomPicker({
 }
 
 function RoomThumb({ scene, selected, onChoose }: { scene: SceneItem; selected: boolean; onChoose: () => void }) {
-  const [failed, setFailed] = useState(false);
+  const [src, setSrc] = useState<string | null>(scene.thumbnailUrl ?? scene.imageUrl);
+  const failed = src === null;
   return (
     <button type="button" className={`rv-room${selected ? ' is-selected' : ''}`} aria-pressed={selected} onClick={onChoose} title={scene.description || undefined}>
       {failed ? (
@@ -129,7 +130,7 @@ function RoomThumb({ scene, selected, onChoose }: { scene: SceneItem; selected: 
           <Icon name="image" /> Image unavailable
         </span>
       ) : (
-        <img src={scene.thumbnailUrl ?? scene.imageUrl} alt={scene.description || ''} loading="lazy" onError={() => setFailed(true)} />
+        <img src={src} alt="" loading="lazy" onError={() => setSrc((cur) => (cur !== scene.imageUrl ? scene.imageUrl : null))} />
       )}
       <span>{scene.title}</span>
     </button>

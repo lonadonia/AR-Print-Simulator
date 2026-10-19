@@ -3,6 +3,7 @@ node_modules/
 
 # build output
 dist/
+dist-harness/
 *.tsbuildinfo
 
 # test output
@@ -16,6 +17,7 @@ coverage/
 !.env.example
 # public, non-secret demo build settings
 !.env.demo
+!.env.harness
 
 # platform / editor
 .vercel/
